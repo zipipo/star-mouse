@@ -666,9 +666,10 @@ function profileForm(first){
 /* ===== 시작 ===== */
 const PCOL=['#ffd6a5','#caffbf','#a0e7e5','#bdb2ff','#ffc6ff','#fdffb6','#ffadad','#b5ead7'];
 function drawPres(){
-  const now=Date.now(),on=PRES.filter(p=>now-p.t<75000&&p.uid!==AUTH?.uid);
+  const now=Date.now(),me=AUTH?.uid,on=PRES.filter(p=>now-p.t<75000&&p.uid!==me);
+  if(me&&ME)on.unshift({uid:me,nick:ME.nick,self:1});
   const col=u=>PCOL[[...u].reduce((a,c)=>a+c.charCodeAt(0),0)%PCOL.length];
-  $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)} 접속 중" style="background:${col(p.uid)}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
+  $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==which)}
 function go(t){tab=t;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
