@@ -149,6 +149,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const ymd=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
 const todayS=()=>ymd(new Date());
 const d=s=>new Date(s+'T12:00:00'), days=s=>Math.round((d(todayS())-d(s))/864e5);
+const fd=s=>s.slice(2).replace(/-/g,'.');
 const md=s=>{const x=d(s);return (x.getMonth()+1)+'/'+x.getDate()};
 const addD=(s,n)=>{const x=d(s);x.setDate(x.getDate()+n);return ymd(x)};
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -433,9 +434,9 @@ function openCage(id,act){
    <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`<div class="qa">${ACTS.filter(([k])=>can(c,k)).map(([k,t])=>`<button data-a="${k}" class="${act===k||(!act&&k===nx)?'on':''}">${t}</button>`).join('')}</div><div id="form"></div>`:''}
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} ${maleOnly?'메이팅 이력':'메이팅 · 출산 이력'}</h4>
-   <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)}${h.old?' <span class="dim">엑셀</span>':''}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
+   <ul class="tl">${hist.map(h=>`<li><span class="dim">${fd(h.date)}</span> ${esc(h.text)}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
-   <ul class="tl">${evs.map((e,i)=>`<li${i===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><span class="dim">${md(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
+   <ul class="tl">${evs.map((e,i)=>`<li${i===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><span class="dim">${fd(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
   $$('[data-a]').forEach(b=>b.onclick=()=>openCage(c.id,b.dataset.a));
   if(act)actForm(c,act);
   if(!$('#dlg').open)$('#dlg').showModal();
@@ -550,9 +551,9 @@ function openLitter(key){
    ${host?`<p>새끼 ${host.pups.n}마리, 어미와 ${host.id}에 있음</p>`:''}
    <div class="cards" style="margin:10px 0">${cs.map(c=>{const s=status(c);return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}" data-c2="${esc(c.id)}"><span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${mice(c)}</button>`}).join('')||(host?'':'<span class="dim">남은 cage 없음</span>')}</div>
    <h4 style="margin:10px 0 4px;font-size:13.5px">메이팅 · 출산 이력</h4>
-   <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)}${h.old?' <span class="dim">엑셀</span>':''}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
+   <ul class="tl">${hist.map(h=>`<li><span class="dim">${fd(h.date)}</span> ${esc(h.text)}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
    <h4 style="margin:10px 0 4px;font-size:13.5px">기록</h4>
-   <ul class="tl">${evs.map(e=>`<li><span class="dim">${md(e.date)}</span> ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
+   <ul class="tl">${evs.map(e=>`<li><span class="dim">${fd(e.date)}</span> ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
   $$('[data-c2]').forEach(b=>b.onclick=()=>openCage(b.dataset.c2));
   if(!$('#dlg').open)$('#dlg').showModal();
 }
