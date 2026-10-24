@@ -370,16 +370,18 @@ function renderLog(){
 }
 function renderHandover(){
   const [w,n]=sched(), evs=EVENTS.filter(e=>e.date>=w.week), N=ntbc();
-  $('#view').innerHTML=`<div class="ho"><section>
-    <h4>이번 주</h4><ul>${evs.map(e=>`<li>${md(e.date)} ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)}</li>`).join('')||'<li>기록 없음</li>'}</ul>
-    <h4>다음 주</h4><ul>${todos().map(t=>`<li>${esc(t.t)}</li>`).join('')||'<li>없음</li>'}</ul>
-    <h4>음수 추가 교체</h4><ul><li>${N.bigIds.join(', ')}</li></ul></section>
-   <section><h4>${w.pair.join(' · ')} → ${n.pair.join(' · ')}</h4>
-    <textarea id="hoT" aria-label="특이사항" placeholder="특이사항"></textarea>
+  $('#view').innerHTML=`<div class="ho">
+   <section><h4>✍️ ${w.pair.join(' · ')} → ${n.pair.join(' · ')}에게 남기기</h4>
+    <textarea id="hoT" aria-label="특이사항" placeholder="특이사항을 적어주세요. 예: FRG 3-C 새끼 마리수 재확인 필요"></textarea>
     <div class="row" style="margin:8px 0"><label for="hoA">NTBC aliquot</label><input id="hoA" placeholder="남은 vial" style="width:90px"><label><input type="checkbox" id="hoL"> LMO 작성 완료</label></div>
     <button class="btn pri" id="hoS" ${canEdit()?'':'disabled'}>보내기</button>
-    ${HANDOVERS.map(x=>`<p style="margin:12px 0 0"><span class="dim">${md(x.week)} ${esc(x.from)} → ${esc(x.to)} · ${x.read?'확인':'<b>미확인</b>'}</span><br>${esc(x.text)}${!x.read&&x.to.includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}</p>`).join('')}
-   </section></div>`;
+    <h4 style="margin-top:16px">받은 · 보낸 인수인계</h4>
+    ${HANDOVERS.map(x=>`<p style="margin:8px 0 0"><span class="dim">${md(x.week)} ${esc(x.from)} → ${esc(x.to)} · ${x.read?'확인':'<b>미확인</b>'}</span><br>${esc(x.text)}${!x.read&&x.to.includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
+   </section>
+   <section><h4>이번 주 기록</h4><ul>${evs.map(e=>`<li>${md(e.date)} ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)}</li>`).join('')||'<li>기록 없음</li>'}</ul>
+    <h4>다음 주 할 일</h4><ul>${todos().map(t=>`<li>${esc(t.t)}</li>`).join('')||'<li>없음</li>'}</ul>
+    <h4>음수 추가 교체</h4><ul><li>${N.bigIds.join(', ')}</li></ul></section>
+   </div>`;
   $('#hoS').onclick=async()=>{const text=[$('#hoT').value.trim(),$('#hoA').value&&'aliquot '+$('#hoA').value,$('#hoL').checked&&'LMO 작성 완료'].filter(Boolean).join(' / ')||'특이사항 없음';
     try{await Store.addHandover({week:w.week,from:w.pair.join(' · '),to:n.pair.join(' · '),text,read:false,by:ME.nick});toast('보냄')}catch(e){toast('저장 실패')}};
   $$('[data-read]').forEach(b=>b.onclick=()=>Store.updateHandover(b.dataset.read,{read:true}));
