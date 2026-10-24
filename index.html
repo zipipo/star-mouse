@@ -311,7 +311,7 @@ function renderTop(){
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
   const st=['FRG','FAH'].map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
-  $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}</table></div><div><b>NTBC</b> 1.8 ml aliquot 기준, 여유 1 vial 포함 · 전체 ${N.va} vial · 4마리↑ ${N.vb} vial</div>`;
+  $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
   $('#todo').innerHTML=todos().map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
   $('#mat').innerHTML=S.cages.filter(c=>c.mate||c.wait).map(c=>`<button data-c="${esc(c.id)}"><b>${c.id}</b> · ${pairS(c)} · ${c.mate?`메이팅 D${days(c.mate.start)}`:`출산 대기 D${days(c.wait)}`}</button>`).join('');
   $$('#todo button,#mat button').forEach(b=>b.onclick=()=>openCage(b.dataset.c));
