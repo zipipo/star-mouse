@@ -417,7 +417,7 @@ function render(){
 
 /* ===== cage 상세 + 입력 ===== */
 const can=(c,k)=>({mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
-const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 합사'],['census','실사']];
+const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사']];
 const MATE_T=['메이팅','출산','수컷 빼기','출산 없음'];
 let CUR=null;
 function openCage(id,act){
@@ -462,9 +462,9 @@ function actForm(c,a){
     if(!ms.length||!fs.length){F.innerHTML=`<div class="frm">${fromMale?'암컷':'수컷'} 있는 cage 없음</div>`;return}
     let rows=[{fsrc:fs[0].id,f:1,msrc:ms[0].id,n:1}];
     const plan=(st=S)=>{const by={},ids=[],taken=[];rows.forEach((r,i)=>(by[r.fsrc]=by[r.fsrc]||[]).push(i));
-      Object.entries(by).forEach(([fid,idx])=>{const fc=C(st,fid),sum=idx.reduce((a,i)=>a+rows[i].f,0),keep=sum===fc.f;
+      Object.entries(by).forEach(([fid,idx])=>{const fc=C(st,fid),sum=idx.reduce((a,i)=>a+rows[i].f,0),ki=idx.find(i=>!rows[i].nw),keep=sum===fc.f&&ki!==undefined;
         const Ls=nextLetters(fc.litter,idx.length-(keep?1:0),st,taken).map(L=>`${fc.litter}-${L}`);taken.push(...Ls);
-        idx.forEach((i,j)=>{ids[i]=keep?(j===0?fid:Ls[j-1]):Ls[j]})});return ids};
+        let q=0;idx.forEach(i=>{ids[i]=keep&&i===ki?fid:Ls[q++]})});return ids};
     const sel=(cls,i,list,v)=>`<select data-i="${i}" class="${cls}" aria-label="cage">${list.map(x=>`<option value="${x.id}" ${x.id===v?'selected':''}>${cl(x)}</option>`).join('')}</select>`;
     const chk=()=>{const ids=plan();$$('.mid').forEach((e,i)=>e.textContent=ids[i]);
       const by={};rows.forEach(r=>by[r.fsrc]=(by[r.fsrc]||0)+r.f);
@@ -472,7 +472,9 @@ function actForm(c,a){
     const draw=()=>{const ids=plan();
       $('#mrows').innerHTML=rows.map((r,i)=>`<div class="row" style="border-top:1px solid var(--line);padding-top:6px"><b class="mid">${ids[i]}</b>
         <label>♀ <input type="number" min="1" value="${r.f}" data-i="${i}" class="mf"></label>${fromMale?sel('mfs',i,fs,r.fsrc):`<span class="dim">from ${c.id}</span>`}
-        <label>× ♂ <input type="number" min="1" value="${r.n}" data-i="${i}" class="mn"></label>${fromMale?`<span class="dim">from ${c.id}</span>`:sel('ms',i,ms,r.msrc)}</div>`).join('');
+        <label>× ♂ <input type="number" min="1" value="${r.n}" data-i="${i}" class="mn"></label>${fromMale?`<span class="dim">from ${c.id}</span>`:sel('ms',i,ms,r.msrc)}
+        <label><input type="checkbox" class="mnw" data-i="${i}" ${r.nw?'checked':''}> 새 cage로</label></div>`).join('');
+      $$('.mnw').forEach(e=>e.onchange=()=>{rows[e.dataset.i].nw=e.checked;chk()});
       $$('.mf').forEach(e=>e.oninput=()=>{rows[e.dataset.i].f=+e.value||0;chk()});
       $$('.mn').forEach(e=>e.oninput=()=>rows[e.dataset.i].n=+e.value||0);
       $$('.ms').forEach(e=>e.onchange=()=>rows[e.dataset.i].msrc=e.value);
@@ -529,10 +531,12 @@ function actForm(c,a){
   }
   if(a==='move'){
     const ts=S.cages.filter(x=>x.line===c.line&&x.id!==c.id&&!x.mate&&(c.f===0?x.f===0&&x.m>0:c.m===0?x.m===0&&x.f>0:true));
-    if(!ts.length){F.innerHTML=`<div class="frm">합칠 같은 성별 cage 없음</div>`;return}
-    h=`<div class="row">${c.m?num('fM','♂'):''}${c.f?num('fF','♀'):''}<label>→ <select id="fT">${ts.map(x=>`<option value="${x.id}">${cl(x)}</option>`).join('')}</select></label></div>`;
+    const nid=`${c.litter}-${nextLetters(c.litter,1)[0]}`;
+    h=`<div class="row">${c.m?num('fM','♂'):''}${c.f?num('fF','♀'):''}<label>→ <select id="fT"><option value="__new">+ 새 cage (${nid})</option>${ts.map(x=>`<option value="${x.id}">${cl(x)}</option>`).join('')}</select></label></div>`;
     ok=async()=>{const t=$('#fT').value,m=v('fM'),f=v('fF');if(!m&&!f)return;
-      after(await commit(st=>{const c=C(st,id),T=C(st,t),mm=Math.min(m,c.m),ff=Math.min(f,c.f);c.m-=mm;c.f-=ff;T.m+=mm;T.f+=ff},[{cage:id,type:'이동',text:`♂${m} ♀${f} → ${t}`}]))};
+      after(await commit(st=>{const c=C(st,id),mm=Math.min(m,c.m),ff=Math.min(f,c.f);let T;
+        if(t==='__new'){T={id:`${c.litter}-${nextLetters(c.litter,1,st)[0]}`,line:c.line,litter:c.litter,m:0,f:0,pups:null,mate:null,wait:null,dad:null,note:''};st.cages.push(T)}else T=C(st,t);
+        c.m-=mm;c.f-=ff;T.m+=mm;T.f+=ff},[{cage:id,type:t==='__new'?'새 cage':'이동',text:`♂${m} ♀${f} → ${t==='__new'?nid:t}`}]))};
   }
   if(a==='census'){
     h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div><input id="fMemo" placeholder="메모">`;
