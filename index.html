@@ -58,6 +58,7 @@ nav.tabs button[aria-selected="true"]{font-weight:700;border-bottom-color:var(--
 nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
 .filters{display:flex;gap:6px;margin-bottom:12px}
 .chip{border:0;background:var(--soft);border-radius:99px;padding:4px 12px;font-size:13px}
+.chip:disabled{cursor:default;opacity:1}
 .chip[aria-pressed="true"]{background:var(--peach-2);color:var(--peach-ink);font-weight:700}
 .litter{margin-bottom:14px}
 .litter h3{font-size:13.5px;margin:0 0 6px;font-weight:700}
@@ -384,10 +385,10 @@ function renderHandover(){
   $$('[data-read]').forEach(b=>b.onclick=()=>Store.updateHandover(b.dataset.read,{read:true}));
 }
 function renderMembers(){
-  const label={pending:'승인 대기',editor:'당번',viewer:'보기 전용',admin:'관리자'};
+  const opts=[['editor','당번'],['viewer','보기 전용'],['pending','승인 대기']];
   const rows=[...MEMBERS].sort((a,b)=>(a.role==='pending'?0:1)-(b.role==='pending'?0:1));
-  $('#view').innerHTML=`<div class="ox"><table class="log"><tr><th>닉네임</th><th>당번표</th><th>상태</th><th></th></tr>${rows.map(m=>`<tr><td>${esc(m.nick)}</td><td>${esc(m.name)}</td><td>${label[m.role]||m.role}</td>
-    <td>${m.role==='admin'?'':`<div class="acts"><button class="btn pri" data-u="${m.uid}" data-r="editor">당번 승인</button><button class="btn" data-u="${m.uid}" data-r="viewer">보기 전용</button><button class="btn" data-u="${m.uid}" data-r="pending">대기로</button></div>`}</td></tr>`).join('')}</table></div>`;
+  $('#view').innerHTML=`<p class="dim" style="margin:0 0 8px">색칠된 칸이 지금 상태예요. 다른 칸을 누르면 바뀌어요.</p><div class="ox"><table class="log"><tr><th>닉네임</th><th>당번표</th><th>권한</th></tr>${rows.map(m=>`<tr><td>${esc(m.nick)}</td><td>${esc(m.name)}</td>
+    <td>${m.role==='admin'?'관리자':`<div class="acts">${opts.map(([r,t])=>`<button class="chip" aria-pressed="${m.role===r}" ${m.role===r?'disabled':''} data-u="${m.uid}" data-r="${r}">${t}</button>`).join('')}</div>`}</td></tr>`).join('')}</table></div>`;
   $$('[data-u]').forEach(b=>b.onclick=async()=>{try{await Store.saveMember(b.dataset.u,{role:b.dataset.r});toast('바꿈')}catch(e){toast('저장 실패')}});
 }
 function renderEmpty(){
