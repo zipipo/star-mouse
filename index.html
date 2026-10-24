@@ -259,7 +259,7 @@ function demoStore(){
 const Store=DEMO?demoStore():fbStore();
 function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>e.hidden=true,2600)}
 async function commit(mut,evs=[]){
-  try{await Store.commit(mut,evs.map(e=>({date:todayS(),by:ME.nick,...e})));return true}
+  try{await Store.commit(mut,evs.map(e=>({date:todayS(),by:ME.nick,...e})));toast(evs.length?`저장됨 · ${evs[0].cage} ${evs[0].type}`:'저장됨');return true}
   catch(e){toast(e.message&&e.message.length<60?e.message:'저장 실패, 다시 시도');console.error(e);return false}
 }
 
@@ -384,6 +384,11 @@ function renderEmpty(){
   $('#view').innerHTML=isAdmin()?`<div class="frm"><div>아직 데이터 없음</div><button class="btn pri" id="seed">2026.10.15 엑셀 기준 데이터로 시작</button></div>`:'<p>아직 데이터 없음</p>';
   if(isAdmin())$('#seed').onclick=async()=>{await Store.seed(seedState(),SEED_EVENTS);toast('시작')};
 }
+function refreshDlg(){
+  if(!CUR||!$('#dlg').open)return;
+  if(CUR.k==='cage'){if($('#form')&&$('#form').innerHTML.trim())return;openCage(CUR.id)}
+  else if(CUR.k==='lit')openLitter(CUR.id);
+}
 function render(){
   if(!ME||ME.role==='pending')return;
   $('#tabMembers').hidden=!isAdmin();
@@ -392,12 +397,15 @@ function render(){
   if(!S){renderEmpty();return}
   renderTop();
   ({board:renderBoard,tree:renderTree,log:renderLog,handover:renderHandover,members:renderMembers})[tab]();
+  refreshDlg();
 }
 
 /* ===== cage 상세 + 입력 ===== */
 const can=(c,k)=>({mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
 const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 합사'],['census','실사']];
+let CUR=null;
 function openCage(id,act){
+  CUR={k:'cage',id};
   const c=S.cages.find(x=>x.id===id);if(!c)return;const l=lit(c.litter),s=status(c),nx=c.mate?'mateEnd':c.wait?'birth':c.pups?'wean':null;
   $('#dT').textContent=c.id;
   const idRe=new RegExp(c.id.replace(/[-]/g,'\\-')+'(?![-A-Z0-9])');
@@ -414,7 +422,7 @@ function openCage(id,act){
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} 메이팅 · 출산 이력</h4>
    <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)}${h.old?' <span class="dim">엑셀</span>':''}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
-   <ul class="tl">${evs.map(e=>`<li><span class="dim">${md(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
+   <ul class="tl">${evs.map((e,i)=>`<li${i===0&&e.date===todayS()?' style="background:var(--blue);border-radius:6px;padding:2px 6px"':''}><span class="dim">${md(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
   $$('[data-a]').forEach(b=>b.onclick=()=>openCage(c.id,b.dataset.a));
   if(act)actForm(c,act);
   if(!$('#dlg').open)$('#dlg').showModal();
@@ -518,6 +526,7 @@ function actForm(c,a){
   $('#fOk').onclick=ok;
 }
 function openLitter(key){
+  CUR={k:'lit',id:key};
   const l=lit(key);if(!l)return;
   const cs=S.cages.filter(c=>c.litter===key&&(total(c)>0||c.mate||c.wait)),host=S.cages.find(c=>c.pups&&c.pups.litter===key);
   const evs=EVENTS.filter(e=>e.cage===key||S.cages.some(c=>c.litter===key&&c.id===e.cage)).slice(0,40);
@@ -537,6 +546,7 @@ function openLitter(key){
 const usedN=e=>{if(typeof e.n==='number')return e.n;let n=0;(e.text||'').replace(/(?:♂|♀|새끼 )(\d+)/g,(_,x)=>{n+=+x});return n};
 function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
 async function reportForm(){
+  CUR=null;
   const t=new Date(),def=ymd(t.getDate()>=20?t:new Date(t.getFullYear(),t.getMonth(),0)).slice(0,7);
   const rep=await Store.getReport().catch(()=>({}))||{};
   const calc=mk=>{const r={};['FRG','FAH'].forEach(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);
@@ -582,6 +592,7 @@ async function reportForm(){
   if(!$('#dlg').open)$('#dlg').showModal();
 }
 function ntbcForm(){
+  CUR=null;
   const N=ntbc();
   $('#dT').textContent='NTBC 교체';
   $('#dB').innerHTML=`<div class="frm"><div class="dim">물병당 0.3 ml · vial 1.8 ml · 여유 1 vial 포함</div>
@@ -592,6 +603,7 @@ function ntbcForm(){
   $('#dlg').showModal();
 }
 function swapForm(){
+  CUR=null;
   const W=sched(8),k=Math.max(0,Math.floor(days(S.dutyStart)/7));
   const wk=(id,sel)=>`<select id="${id}" aria-label="주">${W.map((w,i)=>`<option value="${i}" ${i===sel?'selected':''}>${rng(w)} · ${w.pair.join(' · ')}</option>`).join('')}</select>`;
   const who=(id,i)=>`<select id="${id}" aria-label="사람"><option value="*">둘 다</option>${W[i].pair.map(p=>`<option>${p}</option>`).join('')}</select>`;
@@ -621,6 +633,7 @@ function exportXlsx(){
   XLSX.writeFile(wb,`STAR Mouse ${todayS()}.xlsx`);
 }
 function profileForm(first){
+  CUR=null;
   const names=[...(S?.roster||['예원','도윤','소윤','한결','유진','재혁','혜민']),'교수님','기타'];
   $('#dT').textContent=first?'닉네임 정하기':'내 정보';
   $('#dB').innerHTML=`<div class="frm"><div class="dim">${esc(AUTH?.email||'')}</div>
@@ -644,6 +657,7 @@ function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==wh
 function go(t){tab=t;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('#dX').onclick=()=>$('#dlg').close();
+$('#dlg').addEventListener('close',()=>{CUR=null});
 $('#meBtn').onclick=()=>profileForm(false);
 $('#gIn').onclick=()=>Store.login().catch(e=>toast('로그인 실패'));
 $('#pOut2').onclick=()=>Store.logout();
