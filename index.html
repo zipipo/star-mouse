@@ -342,14 +342,15 @@ function mice(c){
   return `<div class="mice">${h||'<span class="dim">빈 cage</span>'}</div>`;
 }
 function renderBoard(){
-  let h=`<div class="filters">${['전체','FRG','FAH'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${x}</button>`).join('')}</div>`;
+  let h=`<div class="filters">${['전체','FRG','FAH'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${x}</button>`).join('')}${canEdit()?'<button class="btn pri" id="newCage" style="margin-left:auto">+ 새 cage</button>':''}</div>`;
   (filt==='전체'?['FRG','FAH']:[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
     const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
     h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(c=>{const s=status(c);
-      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}" data-c="${esc(c.id)}"><span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${mice(c)}</button>`}).join('')}</div></div>`;
+      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}" data-c="${esc(c.id)}"><span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${mice(c)}</button>`}).join('')}</div></div>`;
   }));
   $('#view').innerHTML=h;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
+  if($('#newCage'))$('#newCage').onclick=newCageForm;
   $$('.card').forEach(b=>b.onclick=()=>openCage(b.dataset.c));
 }
 function renderTree(){
@@ -611,6 +612,49 @@ async function reportForm(){
       msg.textContent='내려받음';
     }catch(e){console.error(e);msg.textContent='실패: '+(e.message||e)}
   };
+  if(!$('#dlg').open)$('#dlg').showModal();
+}
+function newCageForm(){
+  CUR=null;
+  let line=filt==='FAH'?'FAH':'FRG',purpose='메이팅',rows=[];
+  const srcs=()=>S.cages.filter(x=>x.line===line&&x.m+x.f>0&&!x.mate&&!x.wait&&!x.pups);
+  const reset=()=>{const a=srcs();const m=a.find(x=>x.m>0),f=a.find(x=>x.f>0);rows=purpose==='메이팅'?[{src:m?.id,m:1,f:0},{src:f?.id,m:0,f:1}]:[{src:a[0]?.id,m:0,f:0}]};
+  const draw=()=>{const a=srcs(),first=S.cages.find(x=>x.id===(rows.find(r=>r.f>0)||rows[0])?.src);
+    const nid=first?`${first.litter}-${nextLetters(first.litter,1)[0]}`:'';
+    $('#dB').innerHTML=`<div class="frm">
+     <div class="row">${['FRG','FAH'].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${x}">${x}</button>`).join('')}</div>
+     <div class="row"><span>용도</span>${['메이팅','실험','성별 분리'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
+     <div class="dim">데려올 마우스 고르기 · 새 cage 번호 ${nid}</div>
+     <div id="nrows" style="display:flex;flex-direction:column;gap:6px">${rows.map((r,i)=>`<div class="row"><select data-i="${i}" class="nsrc" aria-label="cage">${a.map(x=>`<option value="${x.id}" ${x.id===r.src?'selected':''}>${cl(x)}</option>`).join('')}</select>
+       <label>♂ <input type="number" min="0" value="${r.m}" data-i="${i}" class="nm"></label><label>♀ <input type="number" min="0" value="${r.f}" data-i="${i}" class="nf"></label></div>`).join('')}</div>
+     <div class="row"><button class="btn" id="nAdd">+ 줄 추가</button><span id="nMsg" class="dim"></span></div>
+     <div class="row"><button class="btn pri" id="nOk">${nid} 만들기</button></div></div>`;
+    $$('[data-nl]').forEach(b=>b.onclick=()=>{line=b.dataset.nl;reset();draw()});
+    $$('[data-np]').forEach(b=>b.onclick=()=>{purpose=b.dataset.np;reset();draw()});
+    $$('.nsrc').forEach(e=>e.onchange=()=>{rows[e.dataset.i].src=e.value;draw()});
+    $$('.nm').forEach(e=>e.oninput=()=>rows[e.dataset.i].m=+e.value||0);
+    $$('.nf').forEach(e=>e.oninput=()=>rows[e.dataset.i].f=+e.value||0);
+    $('#nAdd').onclick=()=>{rows.push({src:a[0]?.id,m:0,f:0});draw()};
+    $('#nOk').onclick=async()=>{
+      const R2=rows.filter(r=>r.src&&(r.m||r.f)),M=R2.reduce((x,r)=>x+r.m,0),Fm=R2.reduce((x,r)=>x+r.f,0),msg=$('#nMsg');
+      if(!R2.length){msg.textContent='마리수를 넣어주세요';return}
+      const need={};R2.forEach(r=>{need[r.src]=need[r.src]||{m:0,f:0};need[r.src].m+=r.m;need[r.src].f+=r.f});
+      if(Object.entries(need).some(([k,v])=>{const x=S.cages.find(c=>c.id===k);return x.m<v.m||x.f<v.f})){msg.textContent='원래 cage 마리수보다 많음';return}
+      const mSrc=[...new Set(R2.filter(r=>r.m).map(r=>r.src))];
+      if(purpose==='메이팅'&&(!M||!Fm)){msg.textContent='메이팅은 ♂ ♀ 둘 다 필요';return}
+      if(purpose==='메이팅'&&mSrc.length>1){msg.textContent='메이팅 수컷은 한 cage에서만';return}
+      const base=S.cages.find(x=>x.id===(R2.find(r=>r.f>0)||R2[0]).src),src=R2.map(r=>`${r.src} ${[r.m&&'♂'+r.m,r.f&&'♀'+r.f].filter(Boolean).join('')}`).join(', ');
+      const ms=mSrc[0]&&S.cages.find(x=>x.id===mSrc[0]),fs=S.cages.find(x=>x.id===(R2.find(r=>r.f)||{}).src);
+      const evs=[{cage:nid,type:'새 cage',text:`${purpose} · ${src}`}];
+      if(purpose==='메이팅')evs.push({cage:nid,type:'메이팅',text:`♂${M} from ${ms.id} (DOB ${dobS(ms)}) × ♀${Fm} from ${fs.id} (DOB ${dobS(fs)})`});
+      const ok=await commit(st=>{const b=C(st,base.id),id=`${b.litter}-${nextLetters(b.litter,1,st)[0]}`;
+        R2.forEach(r=>{const x=C(st,r.src);if(x.m<r.m||x.f<r.f)throw new Error('마리수 부족');x.m-=r.m;x.f-=r.f});
+        const t={id,line:b.line,litter:b.litter,m:M,f:Fm,pups:null,mate:null,wait:null,dad:null,note:'',purpose:purpose==='메이팅'?'':purpose};
+        if(purpose==='메이팅'){t.mate={from:mSrc[0],n:M,start:todayS()};t.dad=C(st,mSrc[0]).litter}
+        st.cages.push(t)},evs);
+      if(ok)openCage(nid)};
+  };
+  reset();$('#dT').textContent='새 cage';draw();
   if(!$('#dlg').open)$('#dlg').showModal();
 }
 function ntbcForm(){
