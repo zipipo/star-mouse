@@ -269,8 +269,9 @@ function ntbc(){
   return {all:all.length,big:big.length,va:v(all.length),vb:v(big.length),bigIds:big.map(c=>c.id)};
 }
 /* 당번: 순서표를 두 명씩 끊어서 매주 돌고, 교대는 두 주 사이 사람 맞바꾸기 */
-function sched(n=8){
-  const R=S.roster,k=Math.max(0,Math.floor(days(S.dutyStart)/7)),N=k+n+8;
+const rng=x=>`${md(x.week)}~${md(addD(x.week,4))}`;
+function sched(n=8,shift=0){
+  const R=S.roster,k=Math.max(0,Math.floor(days(S.dutyStart)/7))+shift,N=k+n+8;
   const W=[];for(let i=0;i<N;i++)W.push({week:addD(S.dutyStart,i*7),pair:[R[(2*i)%R.length],R[(2*i+1)%R.length]]});
   (S.swaps||[]).forEach(s=>{if(!W[s.i]||!W[s.j])return;const a=W[s.i].pair.indexOf(s.x),b=W[s.j].pair.indexOf(s.y);if(a<0||b<0)return;W[s.i].pair[a]=s.y;W[s.j].pair[b]=s.x;W[s.i].sw=W[s.j].sw=1});
   return W.slice(k,k+n);
@@ -279,10 +280,10 @@ function sched(n=8){
 /* ===== 화면 ===== */
 function renderTop(){
   $('#meBtn').textContent=`🐾 ${ME.nick}`;
-  const [w,n,n2]=sched(), mine=w.pair.includes(ME.name), N=ntbc();
+  const wd=new Date().getDay(), [w,n,n2]=sched(8,wd===0||wd===6?1:0), mine=w.pair.includes(ME.name), N=ntbc();
   const thisWeek=(S.ntbcLog||[]).filter(x=>x.date>=w.week);
-  $('#duty').innerHTML=`<div><div>이번 주 <b>${w.pair.join(' · ')}</b>${mine?' 🐾 내 차례':''}</div>
-    <div class="s">→ ${n.pair.join(' · ')} → ${n2.pair.join(' · ')}${thisWeek.length?` · 교체 ${thisWeek.map(x=>md(x.date)).join(', ')}`:''}</div></div>
+  $('#duty').innerHTML=`<div><div>${rng(w)} <b>${w.pair.join(' · ')}</b>${mine?' 🐾 내 차례':''}</div>
+    <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}${thisWeek.length?` · 교체 ${thisWeek.map(x=>md(x.date)).join(', ')}`:''}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
@@ -353,6 +354,8 @@ function renderEmpty(){
 function render(){
   if(!ME||ME.role==='pending')return;
   $('#tabMembers').hidden=!isAdmin();
+  const pc=MEMBERS.filter(m=>m.role==='pending').length;
+  $('#tabMembers').innerHTML=pc?`멤버 <span style="color:var(--alert-ink);font-weight:700">승인 대기 ${pc}</span>`:'멤버';
   if(!S){renderEmpty();return}
   renderTop();
   ({board:renderBoard,tree:renderTree,log:renderLog,handover:renderHandover,members:renderMembers})[tab]();
@@ -471,14 +474,14 @@ function ntbcForm(){
 }
 function swapForm(){
   const W=sched(8),k=Math.max(0,Math.floor(days(S.dutyStart)/7));
-  const wk=(id,sel)=>`<select id="${id}" aria-label="주">${W.map((w,i)=>`<option value="${i}" ${i===sel?'selected':''}>${md(w.week)} 주 · ${w.pair.join(' · ')}</option>`).join('')}</select>`;
+  const wk=(id,sel)=>`<select id="${id}" aria-label="주">${W.map((w,i)=>`<option value="${i}" ${i===sel?'selected':''}>${rng(w)} · ${w.pair.join(' · ')}</option>`).join('')}</select>`;
   const who=(id,i)=>`<select id="${id}" aria-label="사람"><option value="*">둘 다</option>${W[i].pair.map(p=>`<option>${p}</option>`).join('')}</select>`;
   $('#dT').textContent='교대';
   $('#dB').innerHTML=`<div class="frm">
    <div class="row">${wk('wA',0)}<span id="pA">${who('xA',0)}</span></div>
    <div class="row">↔ ${wk('wB',1)}<span id="pB">${who('xB',1)}</span></div>
    <div class="row"><button class="btn pri" id="sOk">저장</button></div></div>
-   <ul class="tl">${W.map(w=>`<li><span class="dim">${md(w.week)}</span> ${w.pair.join(' · ')}${w.sw?' <span class="dim">교대</span>':''}</li>`).join('')}</ul>`;
+   <ul class="tl">${W.map(w=>`<li><span class="dim">${rng(w)}</span> ${w.pair.join(' · ')}${w.sw?' <span class="dim">교대</span>':''}</li>`).join('')}</ul>`;
   $('#wA').onchange=()=>{$('#pA').innerHTML=who('xA',+$('#wA').value)};
   $('#wB').onchange=()=>{$('#pB').innerHTML=who('xB',+$('#wB').value)};
   $('#sOk').onclick=async()=>{const a=+$('#wA').value,b=+$('#wB').value;if(a===b)return;
@@ -527,7 +530,7 @@ Store.onAuth(u=>{
   Store.watchMember(u.uid,m=>{
     if(!m){show('login');profileForm(true);return}
     ME={uid:u.uid,...m};
-    if(ME.role==='pending'){show('pending');$('#pendMsg').textContent=`${ME.nick} · 유진이 승인하면 쓸 수 있어요`;return}
+    if(ME.role==='pending'){show('pending');$('#pendMsg').textContent=`${ME.nick} · 유진에게 카톡으로 알려주면 승인해줄 거예요`;return}
     show('app');
     if(!started){started=true;Store.watchData()}
     render();
