@@ -337,8 +337,8 @@ function renderTree(){
   const node=l=>{const cs=S.cages.filter(c=>c.litter===l.key),m=cs.reduce((a,c)=>a+c.m,0),f=cs.reduce((a,c)=>a+c.f,0);
     const host=S.cages.find(c=>c.pups&&c.pups.litter===l.key), kids=S.litters.filter(k=>k.mom===l.key);
     const zero=l.ended||(!host&&m+f===0);
-    const info=zero?'0마리':host?`새끼 ${host.pups.n}`:`♂${m} ♀${f}`;
-    return `<li><span class="node ${zero?'end':l.line}"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span>${l.dad?`<span>× ♂ ${l.dad}</span>`:''}<span>${info}</span></span>${kids.length?'<ul>'+kids.map(node).join('')+'</ul>':''}</li>`};
+    const info=zero?'0마리':host?`${host.pups.n}마리`:`${m+f}마리`;
+    return `<li><span class="node ${zero?'end':l.line}"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span><span>${info}</span></span>${kids.length?'<ul>'+kids.map(node).join('')+'</ul>':''}</li>`};
   $('#view').innerHTML='<div class="tree">'+['FRG','FAH'].map(L=>`<h3 style="font-size:14px;margin:12px 0 6px">${L}</h3><ul>${S.litters.filter(l=>l.line===L&&!S.litters.some(p=>p.key===l.mom)).map(node).join('')}</ul>`).join('')+'</div>';
 }
 function renderLog(){
