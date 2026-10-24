@@ -138,7 +138,6 @@ input[type=number]{width:62px}
 <script>
 /* ===== 설정 ===== apiKey가 비어 있으면 데모 모드(저장 안 됨) */
 const FIREBASE_CONFIG={apiKey:"AIzaSyCi1-KkIXuoJJhANShCQTDSoJZPU5R9A_I",authDomain:"star-mouse-information.firebaseapp.com",projectId:"star-mouse-information",storageBucket:"star-mouse-information.firebasestorage.app",messagingSenderId:"271075035669",appId:"1:271075035669:web:cce2b4593b375ba7f45c1c"};
-const ADMINS=['73404246a@gmail.com','axtumnally@g.skku.edu'];
 const DEMO=!FIREBASE_CONFIG.apiKey||typeof firebase==='undefined';
 
 const WEAN={FRG:[28,35],FAH:[21,28]}, MATE_DAYS=14, GEST=[19,21], VIAL=1.8, NTBC_ML=0.3;
@@ -516,8 +515,12 @@ function profileForm(first){
    <div class="row"><button class="btn pri" id="pOk">저장</button>${first?'':'<button class="btn" id="pOut">로그아웃</button>'}</div></div>`;
   $('#pOk').onclick=async()=>{const nick=$('#pN').value.trim();if(!nick){$('#pN').focus();return}
     const data={nick,name:$('#pR').value,email:AUTH.email||''};
-    if(first)data.role=ADMINS.includes(AUTH.email)?'admin':'pending';
-    try{await Store.saveMember(AUTH.uid,data);$('#dlg').close()}catch(e){toast('저장 실패')}};
+    if(!first){try{await Store.saveMember(AUTH.uid,data);$('#dlg').close()}catch(e){toast('저장 실패')}return}
+    // 역할은 서버 규칙이 허용하는 것만 저장됨: 미리 등록된 계정이면 바로 승인, 아니면 승인 대기
+    for(const role of ['admin','editor','viewer','pending']){
+      try{await Store.saveMember(AUTH.uid,{...data,role});$('#dlg').close();return}catch(e){}
+    }
+    toast('저장 실패');};
   if(!first)$('#pOut').onclick=()=>Store.logout();
   if(!$('#dlg').open)$('#dlg').showModal();
 }
