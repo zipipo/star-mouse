@@ -17,13 +17,13 @@
   --frg:#fff6c9; --fah:#ffe4ec; --blue:#e0edff;
   --peach:#ffe0cc; --peach-2:#ffc8a6; --peach-ink:#5a2508;
   --male:#3a7be0; --female:#e0457b; --pup:#f7b3cb;
-  --alert:#ffd0cc; --alert-ink:#c4161c;
+  --alert:#ffd0cc; --alert-ink:#c4161c; --new:#e6f7d4;
   --font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#17181c; --fg:#f3f3f5; --sub:#cfd2d9; --line:#2d2f36; --soft:#202228;
   --frg:#4b4520; --fah:#4d2a36; --blue:#22344f; --peach:#4d3122; --peach-2:#7a4a30; --peach-ink:#ffe0cc;
-  --male:#8db8ff; --female:#ff9cbf; --pup:#b56d88; --alert:#5a2420; --alert-ink:#ffaaa2; color-scheme:dark}}
+  --male:#8db8ff; --female:#ff9cbf; --pup:#b56d88; --alert:#5a2420; --alert-ink:#ffaaa2; --new:#2d4222; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -414,13 +414,14 @@ function render(){
 /* ===== cage 상세 + 입력 ===== */
 const can=(c,k)=>({mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
 const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 합사'],['census','실사']];
+const MATE_T=['메이팅','출산','수컷 빼기','출산 없음'];
 let CUR=null;
 function openCage(id,act){
   CUR={k:'cage',id};
   const c=S.cages.find(x=>x.id===id);if(!c)return;const l=lit(c.litter),s=status(c),nx=c.mate?'mateEnd':c.wait?'birth':c.pups?'wean':null;
   $('#dT').textContent=c.id;
   const idRe=new RegExp(c.id.replace(/[-]/g,'\\-')+'(?![-A-Z0-9])');
-  const evs=EVENTS.filter(e=>e.cage===c.id||e.cage===c.litter||idRe.test(e.text||'')).slice(0,40);
+  const evs=EVENTS.filter(e=>!MATE_T.includes(e.type)&&(e.cage===c.id||e.cage===c.litter||idRe.test(e.text||''))).slice(0,40);
   const mates=EVENTS.filter(e=>(e.type==='메이팅'||e.type==='출산'||e.type==='수컷 빼기')&&lit(c.litter)&&(e.cage===c.id||idRe.test(e.text||'')||(S.cages.find(x=>x.id===e.cage)?.litter===c.litter)));
   const fmtMate=e=>{if(e.type!=='메이팅')return `${e.cage} ${e.type} ${e.text}`;
     const end=EVENTS.filter(x=>x.type==='수컷 빼기'&&x.cage===e.cage&&x.date>=e.date).map(x=>x.date).sort()[0];
@@ -433,7 +434,7 @@ function openCage(id,act){
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} 메이팅 · 출산 이력</h4>
    <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)}${h.old?' <span class="dim">엑셀</span>':''}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
-   <ul class="tl">${evs.map((e,i)=>`<li${i===0&&e.date===todayS()?' style="background:var(--blue);border-radius:6px;padding:2px 6px"':''}><span class="dim">${md(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
+   <ul class="tl">${evs.map((e,i)=>`<li${i===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><span class="dim">${md(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
   $$('[data-a]').forEach(b=>b.onclick=()=>openCage(c.id,b.dataset.a));
   if(act)actForm(c,act);
   if(!$('#dlg').open)$('#dlg').showModal();
@@ -540,14 +541,15 @@ function openLitter(key){
   CUR={k:'lit',id:key};
   const l=lit(key);if(!l)return;
   const cs=S.cages.filter(c=>c.litter===key&&(total(c)>0||c.mate||c.wait)),host=S.cages.find(c=>c.pups&&c.pups.litter===key);
-  const evs=EVENTS.filter(e=>e.cage===key||S.cages.some(c=>c.litter===key&&c.id===e.cage)).slice(0,40);
-  const hist=[...(l.hist||[]).map(h=>({...h,old:1}))].sort((a,b)=>b.date.localeCompare(a.date));
+  const evs=EVENTS.filter(e=>!MATE_T.includes(e.type)&&(e.cage===key||S.cages.some(c=>c.litter===key&&c.id===e.cage))).slice(0,40);
+  const lm=EVENTS.filter(e=>MATE_T.includes(e.type)&&e.type!=='수컷 빼기'&&S.cages.some(c=>c.litter===key&&c.id===e.cage)).map(e=>({date:e.date,text:`${e.cage} ${e.type} ${e.text}`}));
+  const hist=[...lm,...(l.hist||[]).map(h=>({...h,old:1}))].sort((a,b)=>b.date.localeCompare(a.date));
   $('#dT').textContent=key;
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}</div>
    ${host?`<p>새끼 ${host.pups.n}마리, 어미와 ${host.id}에 있음</p>`:''}
    <div class="cards" style="margin:10px 0">${cs.map(c=>{const s=status(c);return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}" data-c2="${esc(c.id)}"><span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${mice(c)}</button>`}).join('')||(host?'':'<span class="dim">남은 cage 없음</span>')}</div>
    <h4 style="margin:10px 0 4px;font-size:13.5px">메이팅 · 출산 이력</h4>
-   <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)} <span class="dim">엑셀</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>
+   <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)}${h.old?' <span class="dim">엑셀</span>':''}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
    <h4 style="margin:10px 0 4px;font-size:13.5px">기록</h4>
    <ul class="tl">${evs.map(e=>`<li><span class="dim">${md(e.date)}</span> ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
   $$('[data-c2]').forEach(b=>b.onclick=()=>openCage(b.dataset.c2));
