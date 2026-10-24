@@ -233,6 +233,8 @@ function fbStore(){
       }
       await this.seed(st,evs);
     },
+    getReport:async()=>{const x=await db.doc('colony/report').get();return x.exists?x.data():{}},
+    saveReport:p=>db.doc('colony/report').set(p,{merge:true}),
     addHandover:h=>db.collection('handovers').add({...h,ts:FV.serverTimestamp()}),
     updateHandover:(id,p)=>db.doc('handovers/'+id).update(p),
   };
@@ -248,6 +250,7 @@ function demoStore(){
       MEMBERS=[{uid:'demo',...me},{uid:'p1',nick:'재혁',name:'재혁',email:'example@gmail.com',role:'pending'}];render()},
     async commit(mut,evs){const st=clone(S);mut(st);S=clone(st);EVENTS=[...evs,...EVENTS];render()},
     async seed(st,evs){S=st;EVENTS=evs;render()},
+    _rep:{},async getReport(){return this._rep},async saveReport(p){Object.assign(this._rep,p)},
     async reset(st,evs){S=st;EVENTS=evs;HANDOVERS=[];render()},
     async addHandover(h){HANDOVERS.unshift({id:String(Date.now()),...h});render()},
     async updateHandover(id,p){Object.assign(HANDOVERS.find(x=>x.id===id),p);render()},
@@ -284,7 +287,10 @@ function todos(){
     if(c.pups){const [a,b]=WEAN[c.line],p=days(c.pups.born);if(p>=a-7)o.push({id:c.id,t:`${c.id} 새끼 암수 분리 ${md(addD(c.pups.born,a))}~${md(addD(c.pups.born,b))}`})}
     if(c.mate&&days(c.mate.start)>=MATE_DAYS-2)o.push({id:c.id,t:`${c.id} 수컷 빼기 ${md(addD(c.mate.start,MATE_DAYS))}`});
     if(c.wait&&days(c.wait)>=GEST[0]-3)o.push({id:c.id,t:`${c.id} 출산 예상 ${md(addD(c.wait,GEST[0]))}~${md(addD(c.wait,GEST[1]))}`});
-  });return o;
+  });
+  const t=new Date(),mk=ymd(t).slice(0,7);
+  if(t.getDate()>=25&&!(S.reportDone||[]).includes(mk))o.push({id:'__report',t:`월말 현황조사 ${t.getMonth()+1}월: 일반 mouse(C57BL/6) 마리수 · cage 세기 → 현황조사표 내려받기`});
+  return o;
 }
 function ntbc(){
   const all=S.cages.filter(c=>total(c)>0), big=all.filter(c=>total(c)>=4||c.pups);
@@ -314,7 +320,7 @@ function renderTop(){
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
   $('#todo').innerHTML=todos().map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
   $('#mat').innerHTML=S.cages.filter(c=>c.mate||c.wait).map(c=>`<button data-c="${esc(c.id)}"><b>${c.id}</b> · ${pairS(c)} · ${c.mate?`메이팅 D${days(c.mate.start)}`:`출산 대기 D${days(c.wait)}`}</button>`).join('');
-  $$('#todo button,#mat button').forEach(b=>b.onclick=()=>openCage(b.dataset.c));
+  $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():openCage(b.dataset.c));
 }
 function mice(c){
   const row=(n,cl,sx)=>n?`<div><span class="sx ${cl}">${sx}</span>${'🐁'.repeat(n)}</div>`:'';
@@ -337,13 +343,14 @@ function renderTree(){
   const node=l=>{const cs=S.cages.filter(c=>c.litter===l.key),m=cs.reduce((a,c)=>a+c.m,0),f=cs.reduce((a,c)=>a+c.f,0);
     const host=S.cages.find(c=>c.pups&&c.pups.litter===l.key), kids=S.litters.filter(k=>k.mom===l.key);
     const zero=l.ended||(!host&&m+f===0);
-    const info=zero?'0마리':host?`${host.pups.n}마리`:`${m+f}마리`;
-    return `<li><span class="node ${zero?'end':l.line}"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span><span>${info}</span></span>${kids.length?'<ul>'+kids.map(node).join('')+'</ul>':''}</li>`};
+    const info=zero?'0마리':host?`새끼 ${host.pups.n}`:`♂${m} ♀${f}`;
+    return `<li><span class="node ${zero?'end':l.line}" role="button" tabindex="0" data-lit="${esc(l.key)}" style="cursor:pointer"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span><span>${info}</span></span>${kids.length?'<ul>'+kids.map(node).join('')+'</ul>':''}</li>`};
   $('#view').innerHTML='<div class="tree">'+['FRG','FAH'].map(L=>`<h3 style="font-size:14px;margin:12px 0 6px">${L}</h3><ul>${S.litters.filter(l=>l.line===L&&!S.litters.some(p=>p.key===l.mom)).map(node).join('')}</ul>`).join('')+'</div>';
+  $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));
 }
 function renderLog(){
-  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button>${isAdmin()?'<button class="btn" id="rst">테스트 기록 지우고 다시 시작</button><span id="rstQ"></span>':''}</div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th></tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}</td><td>${esc(e.by)}</td></tr>`).join('')}</table></div>`;
-  $('#xls').onclick=exportXlsx;
+  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button><button class="btn pri" id="rpt">월간 현황조사표</button>${isAdmin()?'<button class="btn" id="rst">테스트 기록 지우고 다시 시작</button><span id="rstQ"></span>':''}</div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th></tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}</td><td>${esc(e.by)}</td></tr>`).join('')}</table></div>`;
+  $('#xls').onclick=exportXlsx;$('#rpt').onclick=reportForm;
   if(isAdmin())$('#rst').onclick=()=>{$('#rstQ').innerHTML=' 기록·인수인계 전부 지우고 2026.10.15 엑셀 기준으로 돌아가요. <button class="btn pri" id="rstY">지우기</button> <button class="btn" id="rstN">취소</button>';
     $('#rstN').onclick=()=>$('#rstQ').innerHTML='';
     $('#rstY').onclick=async()=>{$('#rstQ').textContent=' 지우는 중…';try{await Store.reset(seedState(),SEED_EVENTS);toast('다시 시작함')}catch(e){toast('실패');console.error(e)}}};
@@ -367,7 +374,7 @@ function renderHandover(){
 function renderMembers(){
   const label={pending:'승인 대기',editor:'당번',viewer:'보기 전용',admin:'관리자'};
   const rows=[...MEMBERS].sort((a,b)=>(a.role==='pending'?0:1)-(b.role==='pending'?0:1));
-  $('#view').innerHTML=`<div class="ox"><table class="log"><tr><th>닉네임</th><th>당번표</th><th>계정</th><th>상태</th><th></th></tr>${rows.map(m=>`<tr><td>${esc(m.nick)}</td><td>${esc(m.name)}</td><td>${esc(m.email)}</td><td>${label[m.role]||m.role}</td>
+  $('#view').innerHTML=`<div class="ox"><table class="log"><tr><th>닉네임</th><th>당번표</th><th>상태</th><th></th></tr>${rows.map(m=>`<tr><td>${esc(m.nick)}</td><td>${esc(m.name)}</td><td>${label[m.role]||m.role}</td>
     <td>${m.role==='admin'?'':`<div class="acts"><button class="btn pri" data-u="${m.uid}" data-r="editor">당번 승인</button><button class="btn" data-u="${m.uid}" data-r="viewer">보기 전용</button><button class="btn" data-u="${m.uid}" data-r="pending">대기로</button></div>`}</td></tr>`).join('')}</table></div>`;
   $$('[data-u]').forEach(b=>b.onclick=async()=>{try{await Store.saveMember(b.dataset.u,{role:b.dataset.r});toast('바꿈')}catch(e){toast('저장 실패')}});
 }
@@ -421,7 +428,7 @@ function actForm(c,a){
     h=`<div class="row">${c.m?num('fM','♂'):''}${c.f?num('fF','♀'):''}${c.pups?num('fP','새끼'):''}</div><input id="fMemo" placeholder="${a==='exp'?'실험명':'사유'}">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;if(!m&&!f&&!p)return;
       after(await commit(st=>{const c=C(st,id);c.m-=Math.min(m,c.m);c.f-=Math.min(f,c.f);if(c.pups&&p){c.pups.n-=Math.min(p,c.pups.n);if(!c.pups.n)c.pups=null}},
-        [{cage:id,type:a==='exp'?'실험':'사망',text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,memo].filter(Boolean).join(' ')}]))};
+        [{cage:id,type:a==='exp'?'실험':'사망',n:m+f+p,text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,memo].filter(Boolean).join(' ')}]))};
   }
   if(a==='mate'){
     const ms=S.cages.filter(x=>x.line===c.line&&x.m>0&&x.id!==c.id&&!x.mate);
@@ -496,6 +503,70 @@ function actForm(c,a){
   }
   F.innerHTML=`<div class="frm">${h}<div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
   $('#fOk').onclick=ok;
+}
+function openLitter(key){
+  const l=lit(key);if(!l)return;
+  const cs=S.cages.filter(c=>c.litter===key&&(total(c)>0||c.mate||c.wait)),host=S.cages.find(c=>c.pups&&c.pups.litter===key);
+  const evs=EVENTS.filter(e=>e.cage===key||S.cages.some(c=>c.litter===key&&c.id===e.cage)).slice(0,40);
+  const hist=[...(l.hist||[]).map(h=>({...h,old:1}))].sort((a,b)=>b.date.localeCompare(a.date));
+  $('#dT').textContent=key;
+  $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}</div>
+   ${host?`<p>새끼 ${host.pups.n}마리, 어미와 ${host.id}에 있음</p>`:''}
+   <div class="cards" style="margin:10px 0">${cs.map(c=>{const s=status(c);return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}" data-c2="${esc(c.id)}"><span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${mice(c)}</button>`}).join('')||(host?'':'<span class="dim">남은 cage 없음</span>')}</div>
+   <h4 style="margin:10px 0 4px;font-size:13.5px">메이팅 · 출산 이력</h4>
+   <ul class="tl">${hist.map(h=>`<li><span class="dim">${md(h.date)}</span> ${esc(h.text)} <span class="dim">엑셀</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>
+   <h4 style="margin:10px 0 4px;font-size:13.5px">기록</h4>
+   <ul class="tl">${evs.map(e=>`<li><span class="dim">${md(e.date)}</span> ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
+  $$('[data-c2]').forEach(b=>b.onclick=()=>openCage(b.dataset.c2));
+  if(!$('#dlg').open)$('#dlg').showModal();
+}
+/* 실험동물센터 월간 현황조사표: 지난달 제출 파일을 틀로 숫자만 채움 */
+const usedN=e=>{if(typeof e.n==='number')return e.n;let n=0;(e.text||'').replace(/(?:♂|♀|새끼 )(\d+)/g,(_,x)=>{n+=+x});return n};
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+async function reportForm(){
+  const t=new Date(),def=ymd(t.getDate()>=20?t:new Date(t.getFullYear(),t.getMonth(),0)).slice(0,7);
+  const rep=await Store.getReport().catch(()=>({}))||{};
+  const calc=mk=>{const r={};['FRG','FAH'].forEach(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);
+    r[L]={d:cs.reduce((a,c)=>a+total(c),0),e:cs.length,f:EVENTS.filter(e=>e.date.startsWith(mk)&&String(e.cage).startsWith(L)&&['실험','사망','안락사'].includes(e.type)).reduce((a,e)=>a+usedN(e),0)}});
+    r.GEN=(rep.general||{})[mk]||{d:'',e:'',f:''};return r};
+  const draw=()=>{const mk=$('#rM').value,r=calc(mk);
+    const row=(k,lab)=>`<tr><td>${lab}</td>${['d','e','f'].map(x=>`<td><input type="number" min="0" id="r_${k}_${x}" value="${r[k][x]}" style="width:64px"></td>`).join('')}</tr>`;
+    $('#rT').innerHTML=`<table class="log"><tr><th></th><th>동물 수</th><th>cage 수</th><th>사용 동물 수</th></tr>${row('FRG','FRG')}${row('GEN','C57BL/6')}${row('FAH','Fah KO')}</table>`};
+  $('#dT').textContent='월간 현황조사표';
+  $('#dB').innerHTML=`<div class="frm"><label>월 <input type="month" id="rM" value="${def}"></label>
+   <div class="dim">FRG · Fah는 사이트 기록으로 계산, 사용 동물 수는 그 달 실험 · 사망 기록 합계. C57BL/6은 직접 세서 입력</div>
+   <div class="ox" id="rT"></div>
+   ${rep.tpl?`<div class="dim">틀: ${esc(rep.tplName||'저장된 파일')}</div>`:''}
+   <label>${rep.tpl?'틀 바꾸기':'지난달 제출 파일 올리기'} <input type="file" id="rF" accept=".xlsx"></label>
+   <div class="row"><button class="btn pri" id="rGo">내려받기</button><span id="rMsg" class="dim"></span></div></div>`;
+  draw();$('#rM').onchange=draw;
+  $('#rGo').onclick=async()=>{
+    const msg=$('#rMsg');msg.textContent='만드는 중…';
+    try{
+      if(typeof ExcelJS==='undefined')await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+      let buf,f=$('#rF').files[0];
+      if(f){buf=await f.arrayBuffer();const b64=btoa(Array.from(new Uint8Array(buf),c=>String.fromCharCode(c)).join(''));
+        if(canEdit())await Store.saveReport({tpl:b64,tplName:f.name})}
+      else if(rep.tpl){buf=Uint8Array.from(atob(rep.tpl),c=>c.charCodeAt(0)).buffer}
+      else{msg.textContent='지난달 제출 파일을 먼저 올려주세요';return}
+      const mk=$('#rM').value,[yy,mm]=mk.split('-'),mo=+mm,v=(k,x)=>{const n=$(`#r_${k}_${x}`).value;return n===''?null:+n};
+      const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);const ws=wb.worksheets[0];
+      const fix=t=>t.replace(/\(\s*\d{4}\.\s*\d{1,2}월\)/,`(${yy}. ${String(mo).padStart(2,'0')}월)`).replace(/\(\d{1,2}월 도태/,`(${mo}월 도태`);
+      ws.eachRow(row=>row.eachCell(c=>{const v=c.value;
+        if(typeof v==='string')c.value=fix(v);
+        else if(v&&v.richText){const rt=v.richText.map(r=>({...r,text:fix(r.text)}));
+          const joined=rt.map(r=>r.text).join(''),fixed=fix(joined);c.value=fixed===joined?{richText:rt}:{richText:[{...rt[0],text:fixed}]}}}));
+      ws.eachRow(row=>{const sp=String(row.getCell(3).value||'');const k=/FRG/i.test(sp)?'FRG':/fah/i.test(sp)?'FAH':/C57|BL/i.test(sp)?'GEN':null;if(!k)return;
+        [['d',4],['e',5],['f',6]].forEach(([x,col])=>{const n=v(k,x);if(n!==null)row.getCell(col).value=n})});
+      const out=await wb.xlsx.writeBuffer();const a=document.createElement('a');
+      a.href=URL.createObjectURL(new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+      a.download=`실험동물 월간현황조사표_${yy.slice(2)}.${mm}.xlsx`;document.body.appendChild(a);a.click();a.remove();
+      if(canEdit()){await Store.saveReport({general:{...(rep.general||{}),[mk]:{d:v('GEN','d')??'',e:v('GEN','e')??'',f:v('GEN','f')??''}}});
+        await commit(st=>{st.reportDone=[...new Set([...(st.reportDone||[]),mk])]})}
+      msg.textContent='내려받음';
+    }catch(e){console.error(e);msg.textContent='실패: '+(e.message||e)}
+  };
+  if(!$('#dlg').open)$('#dlg').showModal();
 }
 function ntbcForm(){
   const N=ntbc();
