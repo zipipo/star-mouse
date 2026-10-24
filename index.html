@@ -447,7 +447,7 @@ function actForm(c,a){
     h=`<div class="row">${c.m?num('fM','♂'):''}${c.f?num('fF','♀'):''}${c.pups?num('fP','새끼'):''}</div><input id="fMemo" placeholder="${a==='exp'?'실험명':'사유'}">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;if(!m&&!f&&!p)return;
       after(await commit(st=>{const c=C(st,id);c.m-=Math.min(m,c.m);c.f-=Math.min(f,c.f);if(c.pups&&p){c.pups.n-=Math.min(p,c.pups.n);if(!c.pups.n)c.pups=null}},
-        [{cage:id,type:a==='exp'?'실험':'사망',n:m+f+p,text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,memo].filter(Boolean).join(' ')}]))};
+        [{cage:id,type:a==='exp'?'실험':'사망',n:m+f+p,text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,memo&&(a==='exp'?'· '+memo:'· 사유 '+memo)].filter(Boolean).join(' ')}]))};
   }
   if(a==='mate'){
     const fromMale=c.f===0;
