@@ -49,6 +49,8 @@ select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid 
 .cnt{border-collapse:collapse}.cnt th,.cnt td{padding:4px 16px 4px 0;text-align:left;border-bottom:1px solid var(--line)}.cnt th{font-weight:500;color:var(--sub)}
 .todo{margin:10px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 .todo button{border:0;text-align:left;background:var(--alert);color:var(--alert-ink);border-radius:10px;padding:7px 11px;font-size:13.5px;font-weight:700}
+.pres{display:flex;gap:4px}
+.pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#3a2a1a;border:2px solid var(--bg)}
 .todo.mat button{background:var(--blue);color:var(--fg)}
 nav.tabs{display:flex;gap:2px;margin:16px 0 12px;border-bottom:1px solid var(--line);overflow-x:auto}
 nav.tabs button{border:0;background:none;padding:8px 12px;font-size:14px;white-space:nowrap;border-bottom:2px solid transparent}
@@ -114,7 +116,7 @@ input[type=number]{width:62px}
 <div class="wrap" id="app" hidden>
 <header class="top">
   <h1><img src="icon-192.png" alt="" class="logo">STAR Mouse Information</h1>
-  <button class="btn" id="meBtn"></button>
+  <div class="row" style="gap:10px"><div id="pres" class="pres"></div><button class="btn" id="meBtn"></button></div>
 </header>
 <div class="duty" id="duty"></div>
 <div class="stat" id="stat"></div>
@@ -151,6 +153,7 @@ const md=s=>{const x=d(s);return (x.getMonth()+1)+'/'+x.getDate()};
 const addD=(s,n)=>{const x=d(s);x.setDate(x.getDate()+n);return ymd(x)};
 const clone=o=>JSON.parse(JSON.stringify(o));
 
+let PRES=[];
 let S=null, EVENTS=[], HANDOVERS=[], MEMBERS=[], ME=null, AUTH=null, started=false;
 let tab='board', filt='전체';
 
@@ -233,6 +236,13 @@ function fbStore(){
       }
       await this.seed(st,evs);
     },
+    presence(){
+      const ref=db.doc('presence/'+AUTH.uid),beat=()=>{if(document.visibilityState==='visible')ref.set({nick:ME.nick,ts:FV.serverTimestamp()}).catch(()=>{})};
+      beat();setInterval(beat,30000);document.addEventListener('visibilitychange',beat);
+      window.addEventListener('pagehide',()=>{ref.delete().catch(()=>{})});
+      db.collection('presence').onSnapshot(q=>{PRES=q.docs.map(x=>({uid:x.id,nick:x.data().nick,t:x.data().ts?.toMillis?.()||Date.now()}));drawPres()},()=>{});
+      setInterval(drawPres,30000);
+    },
     getReport:async()=>{const x=await db.doc('colony/report').get();return x.exists?x.data():{}},
     saveReport:p=>db.doc('colony/report').set(p,{merge:true}),
     addHandover:h=>db.collection('handovers').add({...h,ts:FV.serverTimestamp()}),
@@ -250,6 +260,7 @@ function demoStore(){
       MEMBERS=[{uid:'demo',...me},{uid:'p1',nick:'재혁',name:'재혁',email:'example@gmail.com',role:'pending'}];render()},
     async commit(mut,evs){const st=clone(S);mut(st);S=clone(st);EVENTS=[...evs,...EVENTS];render()},
     async seed(st,evs){S=st;EVENTS=evs;render()},
+    presence(){PRES=[{uid:'demo',nick:ME.nick,t:Date.now()},{uid:'x',nick:'재혁',t:Date.now()}];drawPres()},
     _rep:{},async getReport(){return this._rep},async saveReport(p){Object.assign(this._rep,p)},
     async reset(st,evs){S=st;EVENTS=evs;HANDOVERS=[];render()},
     async addHandover(h){HANDOVERS.unshift({id:String(Date.now()),...h});render()},
@@ -653,6 +664,12 @@ function profileForm(first){
 }
 
 /* ===== 시작 ===== */
+const PCOL=['#ffd6a5','#caffbf','#a0e7e5','#bdb2ff','#ffc6ff','#fdffb6','#ffadad','#b5ead7'];
+function drawPres(){
+  const now=Date.now(),on=PRES.filter(p=>now-p.t<75000&&p.uid!==AUTH?.uid);
+  const col=u=>PCOL[[...u].reduce((a,c)=>a+c.charCodeAt(0),0)%PCOL.length];
+  $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)} 접속 중" style="background:${col(p.uid)}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
+}
 function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==which)}
 function go(t){tab=t;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
@@ -669,7 +686,7 @@ Store.onAuth(u=>{
     ME={uid:u.uid,...m};
     if(ME.role==='pending'){show('pending');$('#pendMsg').textContent=`${ME.nick} · 유진에게 카톡으로 알려주면 승인해줄 거예요`;return}
     show('app');
-    if(!started){started=true;Store.watchData()}
+    if(!started){started=true;Store.watchData();Store.presence()}
     render();
   });
 });
