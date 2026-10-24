@@ -343,7 +343,7 @@ function renderTree(){
   const node=l=>{const cs=S.cages.filter(c=>c.litter===l.key),m=cs.reduce((a,c)=>a+c.m,0),f=cs.reduce((a,c)=>a+c.f,0);
     const host=S.cages.find(c=>c.pups&&c.pups.litter===l.key), kids=S.litters.filter(k=>k.mom===l.key);
     const zero=l.ended||(!host&&m+f===0);
-    const info=zero?'0마리':host?`새끼 ${host.pups.n}`:`♂${m} ♀${f}`;
+    const info=zero?'0마리':host?`${host.pups.n}마리`:`♂${m} ♀${f}`;
     return `<li><span class="node ${zero?'end':l.line}" role="button" tabindex="0" data-lit="${esc(l.key)}" style="cursor:pointer"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span><span>${info}</span></span>${kids.length?'<ul>'+kids.map(node).join('')+'</ul>':''}</li>`};
   $('#view').innerHTML='<div class="tree">'+['FRG','FAH'].map(L=>`<h3 style="font-size:14px;margin:12px 0 6px">${L}</h3><ul>${S.litters.filter(l=>l.line===L&&!S.litters.some(p=>p.key===l.mom)).map(node).join('')}</ul>`).join('')+'</div>';
   $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));
@@ -527,14 +527,14 @@ async function reportForm(){
   const t=new Date(),def=ymd(t.getDate()>=20?t:new Date(t.getFullYear(),t.getMonth(),0)).slice(0,7);
   const rep=await Store.getReport().catch(()=>({}))||{};
   const calc=mk=>{const r={};['FRG','FAH'].forEach(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);
-    r[L]={d:cs.reduce((a,c)=>a+total(c),0),e:cs.length,f:EVENTS.filter(e=>e.date.startsWith(mk)&&String(e.cage).startsWith(L)&&['실험','사망','안락사'].includes(e.type)).reduce((a,e)=>a+usedN(e),0)}});
+    r[L]={d:cs.reduce((a,c)=>a+total(c),0),e:cs.length,f:EVENTS.filter(e=>e.date.startsWith(mk)&&String(e.cage).startsWith(L)&&e.type==='실험').reduce((a,e)=>a+usedN(e),0)}});
     r.GEN=(rep.general||{})[mk]||{d:'',e:'',f:''};return r};
   const draw=()=>{const mk=$('#rM').value,r=calc(mk);
     const row=(k,lab)=>`<tr><td>${lab}</td>${['d','e','f'].map(x=>`<td><input type="number" min="0" id="r_${k}_${x}" value="${r[k][x]}" style="width:64px"></td>`).join('')}</tr>`;
     $('#rT').innerHTML=`<table class="log"><tr><th></th><th>동물 수</th><th>cage 수</th><th>사용 동물 수</th></tr>${row('FRG','FRG')}${row('GEN','C57BL/6')}${row('FAH','Fah KO')}</table>`};
   $('#dT').textContent='월간 현황조사표';
   $('#dB').innerHTML=`<div class="frm"><label>월 <input type="month" id="rM" value="${def}"></label>
-   <div class="dim">FRG · Fah는 사이트 기록으로 계산, 사용 동물 수는 그 달 실험 · 사망 기록 합계. C57BL/6은 직접 세서 입력</div>
+   <div class="dim">FRG · Fah는 사이트 기록으로 계산, 사용 동물 수는 그 달 실험 희생 기록 합계. C57BL/6은 직접 세서 입력</div>
    <div class="ox" id="rT"></div>
    ${rep.tpl?`<div class="dim">틀: ${esc(rep.tplName||'저장된 파일')}</div>`:''}
    <label>${rep.tpl?'틀 바꾸기':'지난달 제출 파일 올리기'} <input type="file" id="rF" accept=".xlsx"></label>
