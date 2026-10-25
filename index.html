@@ -282,7 +282,7 @@ const isAdmin=()=>ME&&ME.role==='admin';
 const lit=(k,st=S)=>st.litters.find(l=>l.key===k);
 const C=(st,id)=>{const c=st.cages.find(x=>x.id===id);if(!c)throw new Error(id+' 없음');return c};
 const total=c=>c.m+c.f+(c.pups?c.pups.n:0);
-const fixMate=c=>{c.m=Math.max(0,c.m);c.f=Math.max(0,c.f);if(c.mate){c.mate.n=Math.min(c.mate.n,c.m);if(!c.mate.n||!c.f){if(c.f&&!c.mate.n)c.wait=c.mate.start;c.mate=null}}};
+const fixMate=c=>{c.m=Math.max(0,c.m);c.f=Math.max(0,c.f);if(!c.f)c.wait=null;if(c.mate){c.mate.n=Math.min(c.mate.n,c.m);if(!c.mate.n||!c.f){if(c.f&&!c.mate.n)c.wait=c.mate.start;c.mate=null}}};
 const dobS=(x,st=S)=>{const l=lit(x.litter,st);return l?l.dob.slice(2).replace(/-/g,'.'):''};
 const pairS=c=>{const src=c.mate&&S.cages.find(x=>x.id===c.mate.from);const dl=src?lit(src.litter):c.dad?lit(c.dad):null;return dl?`♂ ${dl.dob.slice(2).replace(/-/g,'.')} × ♀ ${dobS(c)}`:''};
 const cl=x=>`${x.id} · DOB ${dobS(x)} · ${[x.m&&'♂'+x.m,x.f&&'♀'+x.f,x.pups&&'새끼 '+x.pups.n].filter(Boolean).join(' ')||'0'}`;
@@ -421,6 +421,10 @@ function render(){
 const can=(c,k)=>({mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
 const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사']];
 const MATE_T=['메이팅','출산','수컷 빼기','출산 없음'];
+const slim=t=>String(t||'').replace(/ \(DOB [^)]+\)/g,'').replace(/from /g,'');
+const listH=(items,line)=>{if(!items.length)return '<ul class="tl"><li class="dim">없음</li></ul>';
+  const li=items.map(line),a=li.slice(0,5).join(''),b=li.slice(5).join('');
+  return `<ul class="tl" style="display:flex;flex-direction:column;gap:6px">${a}</ul>${b?`<details><summary class="dim" style="cursor:pointer;margin:4px 0">이전 ${li.length-5}개 더 보기</summary><ul class="tl" style="display:flex;flex-direction:column;gap:6px">${b}</ul></details>`:''}`};
 let CUR=null;
 function openCage(id,act){
   CUR={k:'cage',id};
@@ -429,19 +433,19 @@ function openCage(id,act){
   const idRe=new RegExp(c.id.replace(/[-]/g,'\\-')+'(?![-A-Z0-9])');
   const evs=EVENTS.filter(e=>!MATE_T.includes(e.type)&&(e.cage===c.id||e.cage===c.litter||idRe.test(e.text||''))).slice(0,40);
   const mates=EVENTS.filter(e=>(e.type==='메이팅'||e.type==='출산'||e.type==='수컷 빼기')&&lit(c.litter)&&(e.cage===c.id||idRe.test(e.text||'')||(S.cages.find(x=>x.id===e.cage)?.litter===c.litter)));
-  const fmtMate=e=>{if(e.type!=='메이팅')return `${e.cage} ${e.type} ${e.text}`;
+  const fmtMate=e=>{if(e.type!=='메이팅')return {head:`${fd(e.date)} ${e.cage} ${e.type}`,body:slim(e.text)};
     const end=EVENTS.filter(x=>x.type==='수컷 빼기'&&x.cage===e.cage&&x.date>=e.date).map(x=>x.date).sort()[0];
-    return `${e.cage} 메이팅 ${md(e.date)}~${end?md(end):md(addD(e.date,MATE_DAYS))+' 예정'} · ${e.text}`};
+    return {head:`${fd(e.date)}~${end?md(end):md(addD(e.date,MATE_DAYS))+' 예정'} ${e.cage} 메이팅`,body:slim(e.text)}};
   const maleOnly=c.f===0&&!c.pups;
-  const hist=[...mates.filter(e=>e.type!=='수컷 빼기').map(e=>({date:e.date,text:fmtMate(e),kind:e.type})),...(l.hist||[]).map(h=>({...h,old:1,kind:h.text.startsWith('메이팅')?'메이팅':'출산'}))].filter(h=>!maleOnly||h.kind==='메이팅').sort((a,b)=>b.date.localeCompare(a.date));
+  const hist=[...mates.filter(e=>e.type!=='수컷 빼기').map(e=>({date:e.date,...fmtMate(e),kind:e.type})),...(l.hist||[]).map(h=>({...h,head:`${fd(h.date)} ${h.text}`,old:1,kind:h.text.startsWith('메이팅')?'메이팅':'출산'}))].filter(h=>!maleOnly||h.kind==='메이팅').sort((a,b)=>b.date.localeCompare(a.date));
   const src=c.mate&&S.cages.find(x=>x.id===c.mate.from);
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}${c.note?' · '+esc(c.note):''}</div>
    <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`<div class="qa">${ACTS.filter(([k])=>can(c,k)).map(([k,t])=>`<button data-a="${k}" class="${act===k||(!act&&k===nx)?'on':''}">${t}</button>`).join('')}</div><div id="form"></div>`:''}
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} ${maleOnly?'메이팅 이력':'메이팅 · 출산 이력'}</h4>
-   <ul class="tl">${hist.map(h=>`<li><span class="dim">${fd(h.date)}</span> ${esc(h.text)}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
+   ${listH(hist,h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`)}
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
-   <ul class="tl">${evs.map((e,i)=>`<li${i===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><span class="dim">${fd(e.date)}</span> ${esc(e.type)} ${esc(e.text)} <span class="dim">${esc(e.by)}</span></li>`).join('')||'<li class="dim">없음</li>'}</ul>`;
+   ${listH(evs,(e,k)=>`<li${k===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><b style="font-weight:600">${fd(e.date)} ${esc(e.type)}</b> ${esc(slim(e.text))} <span class="dim">${esc(e.by)}</span></li>`)}`;
   $$('[data-a]').forEach(b=>b.onclick=()=>openCage(c.id,b.dataset.a));
   if(act)actForm(c,act);
   if(!$('#dlg').open)$('#dlg').showModal();
