@@ -676,7 +676,7 @@ function newCageForm(){
   const draw=()=>{
     if(purpose==='새로 반입'){
       $('#dB').innerHTML=`<div class="frm">
-       <div class="row">${LINES().map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
+       <div class="row">${[...new Set([...LINES(),line])].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
        <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
        <div class="dim">밖에서 새로 들어온 마우스 · 새 litter ${esc(line)} ${nextNo(line)} 로 등록</div>
        <label>cage 이름 <input id="nName" placeholder="선택 · 예: YJ cage, HG&YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
@@ -694,7 +694,7 @@ function newCageForm(){
       return}
     if(purpose==='성별 분리'){const pc=S.cages.filter(x=>x.line===line&&x.pups);
       $('#dB').innerHTML=`<div class="frm">
-       <div class="row">${LINES().map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
+       <div class="row">${[...new Set([...LINES(),line])].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
        <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
        <div class="dim">아직 분리 안 된 새끼가 있는 cage</div>
        ${pc.map(x=>`<button class="btn" style="text-align:left" data-wean="${x.id}">${x.id} · 새끼 ${x.pups.n}마리 · ${x.pups.litter} · D${days(x.pups.born)}</button>`).join('')||'<div>분리할 새끼가 있는 cage 없음</div>'}</div>`;
@@ -704,7 +704,7 @@ function newCageForm(){
     const a=srcs(),first=S.cages.find(x=>x.id===(rows.find(r=>r.f>0)||rows[0])?.src);
     const nid=first?`${first.litter}-${nextLetters(first.litter,1)[0]}`:'';
     $('#dB').innerHTML=`<div class="frm">
-     <div class="row">${LINES().map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
+     <div class="row">${[...new Set([...LINES(),line])].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
      <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
      <label>cage 이름 <input id="nName" placeholder="선택 · 예: YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
      <div class="dim">데려올 마우스 고르기 · 새 cage 번호 ${nid}</div>
