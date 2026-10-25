@@ -453,9 +453,10 @@ function openCage(id,act){
   const maleOnly=c.f===0&&!c.pups;
   const hist=[...mates.filter(e=>e.type!=='수컷 빼기').map(e=>({date:e.date,...fmtMate(e),kind:e.type})),...(l.hist||[]).map(h=>({...h,head:`${fd(h.date)} ${h.text}`,old:1,kind:h.text.startsWith('메이팅')?'메이팅':'출산'}))].filter(h=>!maleOnly||h.kind==='메이팅').sort((a,b)=>b.date.localeCompare(a.date));
   const src=c.mate&&S.cages.find(x=>x.id===c.mate.from);
-  $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}${c.note?' · '+esc(c.note):''}</div>
+  $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}</div>
    <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`<div class="qa">${ACTS.filter(([k])=>can(c,k)).map(([k,t])=>`<button data-a="${k}" class="${act===k||(!act&&k===nx)?'on':''}">${t}</button>`).join('')}</div><div id="form"></div>`:''}
+   ${c.note?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(c.note)}</div>`:''}
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} ${maleOnly?'메이팅 이력':'메이팅 · 출산 이력'}</h4>
    ${listH(hist,h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`)}
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
