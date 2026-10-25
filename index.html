@@ -296,6 +296,8 @@ const XCOL=['#e3f4dc','#efe6ff','#dff4f7','#fbe8d6','#f0f0e0'];
 const lcol=l=>['FRG','FAH'].includes(l)?'':XCOL[Math.max(0,LINES().indexOf(l)-2)%XCOL.length];
 const cst=c=>!(c.pups||c.mate||c.wait)&&lcol(c.line)?` style="background:${lcol(c.line)}"`:'';
 const indS=c=>{const N='①②③④⑤⑥⑦⑧⑨⑩⑪⑫',f=(arr,n,sx)=>(arr||[]).slice(0,n).map((o,i)=>o&&(o.ear||o.memo)?`${sx}${N[i]||i+1} ${[o.ear,o.memo].filter(Boolean).join(' ')}`:'').filter(Boolean);return [...f(c.indM,c.m,'♂'),...f(c.indF,c.f,'♀')].join(' · ')};
+const notesOf=c=>[...(c.note?[{t:'',by:'',text:c.note,legacy:1}]:[]),...(c.notes||[]).map((n,i)=>({...n,i}))].sort((a,b)=>(b.t||'').localeCompare(a.t||'')||((b.i??-1)-(a.i??-1)));
+const nowS=()=>{const d=new Date();return `${ymd(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
 const cname=c=>c.name?`${esc(c.name)} <span class="dim" style="font-weight:400;font-size:12px">${c.id}</span>`:c.id;
 const fixMate=c=>{c.m=Math.max(0,c.m);c.f=Math.max(0,c.f);if(!c.f)c.wait=null;if(c.mate){c.mate.n=Math.min(c.mate.n,c.m);if(!c.mate.n||!c.f){if(c.f&&!c.mate.n)c.wait=c.mate.start;c.mate=null}}};
 const dobS=(x,st=S)=>{const l=lit(x.litter,st);return l?l.dob.slice(2).replace(/-/g,'.'):''};
@@ -363,7 +365,7 @@ function renderBoard(){
   (filt==='전체'?LINES():[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
     const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
     h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(c=>{const s=status(c);
-      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${c.note?`<span class="memo">📝 ${esc(c.note)}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?`<div class="row" style="gap:6px"><img src="mating.png" alt="Mating" style="height:54px;width:auto">${c.m>1||c.f>1?`<span><span class="ma">♂${c.m}</span> <span class="fe">♀${c.f}</span></span>`:''}</div>`:mice(c)}</button>`}).join('')}</div></div>`;
+      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${notesOf(c).length?`<span class="memo">📝 ${esc(notesOf(c)[0].text)}${notesOf(c).length>1?` (+${notesOf(c).length-1})`:''}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?`<div class="row" style="gap:6px"><img src="mating.png" alt="Mating" style="height:54px;width:auto">${c.m>1||c.f>1?`<span><span class="ma">♂${c.m}</span> <span class="fe">♀${c.f}</span></span>`:''}</div>`:mice(c)}</button>`}).join('')}</div></div>`;
   }));
   $('#view').innerHTML=h;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
@@ -459,7 +461,7 @@ function openCage(id,act){
    <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`<div class="qa">${ACTS.filter(([k])=>can(c,k)).map(([k,t])=>`<button data-a="${k}" class="${act===k||(!act&&k===nx)?'on':''}">${t}</button>`).join('')}</div><div id="form"></div>`:''}
    ${indS(c)?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 개체 표시</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(indS(c)).replace(/ · /g,'<br>')}</div>`:''}
-   ${c.note?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(c.note)}</div>`:''}
+   ${notesOf(c).length?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="display:flex;flex-direction:column;gap:6px">${notesOf(c).map(n=>`<div style="background:var(--soft);border-radius:8px;padding:6px 10px;font-size:13.5px"><div class="dim">${n.t?fd(n.t.slice(0,10))+' '+n.t.slice(11):'이전 메모'}${n.by?' · '+esc(n.by):''}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div>`).join('')}</div>`:''}
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} ${maleOnly?'메이팅 이력':'메이팅 · 출산 이력'}</h4>
    ${listH(hist,h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`)}
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
@@ -581,8 +583,13 @@ function actForm(c,a){
       after(await commit(st=>{const c=C(st,id);c.indM=M;c.indF=Fm},[{cage:id,type:'개체 표시',text:txt||'표시 지움'}]))};
   }
   if(a==='memo'){
-    h=`<textarea id="fNote" maxlength="300" placeholder="예: 귀 cutting ④ X ⑤ left / 상태 안 좋음">${esc(c.note||'')}</textarea>`;
-    ok=async()=>{const t=$('#fNote').value.trim();after(await commit(st=>{C(st,id).note=t},[{cage:id,type:'메모',text:t||'메모 지움'}]))};
+    const ns=notesOf(c);
+    h=`<textarea id="fNote" maxlength="300" placeholder="새 메모 · 저장하면 날짜와 시간이 같이 남아요"></textarea>
+      ${ns.length?`<div class="dim">지난 메모 지우기</div>${ns.map(n=>`<div class="row" style="gap:6px"><span style="flex:1;min-width:0;font-size:13px">${n.t?fd(n.t.slice(0,10)):'이전'} ${esc(n.text)}</span><button class="btn" data-ndel="${n.legacy?'L':n.i}">지우기</button></div>`).join('')}`:''}`;
+    setTimeout(()=>$$('[data-ndel]').forEach(b=>b.onclick=async()=>{const k=b.dataset.ndel;
+      after(await commit(st=>{const c=C(st,id);if(k==='L')c.note='';else c.notes=(c.notes||[]).filter((_,i)=>i!==+k)},[{cage:id,type:'메모 지움',text:''}]))}));
+    ok=async()=>{const t=$('#fNote').value.trim();if(!t)return;const n={t:nowS(),by:ME.nick,text:t};
+      after(await commit(st=>{const c=C(st,id);c.notes=[...(c.notes||[]),n]},[{cage:id,type:'메모',text:t}]))};
   }
   if(a==='rename'){
     h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: YJ cage / Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1">`;
@@ -831,7 +838,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
-const VER='20261025133359';
+const VER='20261025133515';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
