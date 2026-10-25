@@ -72,6 +72,7 @@ nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
 .card{border:0;text-align:left;border-radius:14px;padding:10px 11px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .card.FRG{background:var(--frg)}.card.FAH{background:var(--fah)}.card.blue{background:var(--blue)}
 .card .id{font-weight:700;font-size:14.5px}
+.card .memo{font-size:12.5px;color:var(--sub);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .st{font-size:12.5px;font-weight:700}.st.late{color:var(--alert-ink)}
 .mice{font-size:15px;line-height:1.35;word-break:break-all}
 .sx{font-size:17px;font-weight:700;display:inline-block;margin-right:4px;vertical-align:-1px}
@@ -360,7 +361,7 @@ function renderBoard(){
   (filt==='전체'?LINES():[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
     const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
     h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(c=>{const s=status(c);
-      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${c.mate?`<div class="row" style="gap:6px"><img src="mating.png" alt="Mating" style="height:54px;width:auto">${c.m>1||c.f>1?`<span><span class="ma">♂${c.m}</span> <span class="fe">♀${c.f}</span></span>`:''}</div>`:mice(c)}</button>`}).join('')}</div></div>`;
+      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${c.note?`<span class="memo">📝 ${esc(c.note)}</span>`:''}${c.mate?`<div class="row" style="gap:6px"><img src="mating.png" alt="Mating" style="height:54px;width:auto">${c.m>1||c.f>1?`<span><span class="ma">♂${c.m}</span> <span class="fe">♀${c.f}</span></span>`:''}</div>`:mice(c)}</button>`}).join('')}</div></div>`;
   }));
   $('#view').innerHTML=h;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
@@ -432,7 +433,7 @@ function render(){
 
 /* ===== cage 상세 + 입력 ===== */
 const can=(c,k)=>({mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
-const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사'],['rename','이름']];
+const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사'],['memo','메모'],['rename','이름']];
 const MATE_T=['메이팅','출산','수컷 빼기','출산 없음'];
 const slim=t=>String(t||'').replace(/ \(DOB [^)]+\)/g,'').replace(/from /g,'');
 const listH=(items,line)=>{if(!items.length)return '<ul class="tl"><li class="dim">없음</li></ul>';
@@ -557,6 +558,10 @@ function actForm(c,a){
       after(await commit(st=>{const c=C(st,id),mm=Math.min(m,c.m),ff=Math.min(f,c.f);let T;
         if(t==='__new'){T={id:`${c.litter}-${nextLetters(c.litter,1,st)[0]}`,line:c.line,litter:c.litter,m:0,f:0,pups:null,mate:null,wait:null,dad:null,note:''};st.cages.push(T)}else T=C(st,t);
         c.m-=mm;c.f-=ff;T.m+=mm;T.f+=ff;fixMate(c)},[{cage:id,type:t==='__new'?'새 cage':'이동',text:`♂${m} ♀${f} → ${t==='__new'?nid:t}`}]))};
+  }
+  if(a==='memo'){
+    h=`<textarea id="fNote" maxlength="300" placeholder="예: 귀 cutting ④ X ⑤ left / 상태 안 좋음">${esc(c.note||'')}</textarea>`;
+    ok=async()=>{const t=$('#fNote').value.trim();after(await commit(st=>{C(st,id).note=t},[{cage:id,type:'메모',text:t||'메모 지움'}]))};
   }
   if(a==='rename'){
     h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: DY cage, HG&YJ cage" maxlength="30" style="flex:1">`;
