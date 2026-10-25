@@ -50,7 +50,7 @@ select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid 
 .todo{margin:10px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 .todo button{border:0;text-align:left;background:var(--alert);color:var(--alert-ink);border-radius:10px;padding:7px 11px;font-size:13.5px;font-weight:700}
 .pres{display:flex;gap:4px}
-.pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#3a2a1a;border:2px solid var(--bg)}
+.pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;border:2px solid var(--bg)}
 .card.mating{position:relative;overflow:hidden}
 .mt{height:32px;width:auto;vertical-align:middle;margin-left:4px}
 .hrt{position:absolute;bottom:-14px;font-size:15px;color:#ff8fb3;opacity:0;animation:hrt 3.6s ease-in infinite;pointer-events:none}
@@ -815,7 +815,7 @@ function profileForm(first){
 }
 
 /* ===== 시작 ===== */
-const PCOL=['#ffd6a5','#caffbf','#a0e7e5','#bdb2ff','#ffc6ff','#fdffb6','#ffadad','#b5ead7'];
+const PCOL=['#e0795f','#3f9a72','#5b7fd6','#9a62d8','#d4507f','#2c9c8f','#c27a3c','#6f8a2c'];
 function drawPres(){
   const now=Date.now(),me=AUTH?.uid,on=PRES.filter(p=>now-p.t<75000&&p.uid!==me);
   if(me&&ME)on.unshift({uid:me,nick:ME.nick,self:1});
@@ -825,7 +825,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
-const VER='20261025133111';
+const VER='20261025133151';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
