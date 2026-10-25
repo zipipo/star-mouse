@@ -346,7 +346,7 @@ function renderTop(){
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
   const st=LINES().map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
-  $('#todo').innerHTML=todos().sort((a,b)=>a.id==='__report'?1:b.id==='__report'?-1:a.id.localeCompare(b.id,'ko',{numeric:true})).map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
+  $('#todo').innerHTML=todos().sort((a,b)=>a.id==='__report'?-1:b.id==='__report'?1:a.id.localeCompare(b.id,'ko',{numeric:true})).map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
   const byLine=(a,b)=>(LINES().indexOf(a.line)-LINES().indexOf(b.line))||a.id.localeCompare(b.id,'ko',{numeric:true});
   $('#mat').innerHTML=S.cages.filter(c=>c.mate||c.wait).sort((a,b)=>byLine(a,b)||((a.mate?0:1)-(b.mate?0:1))).map(c=>`<button data-c="${esc(c.id)}"><b>${c.id}</b> · ${pairS(c)} · ${c.mate?`메이팅 D${days(c.mate.start)}`:`출산 예정 ${md(addD(c.wait,GEST[0]))}~${md(addD(c.wait,GEST[1]))}`}</button>`).join('');
   $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():openCage(b.dataset.c));
@@ -813,7 +813,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
-const VER='20261025132712';
+const VER='20261025132746';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
