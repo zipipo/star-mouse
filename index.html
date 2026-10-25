@@ -579,7 +579,7 @@ function actForm(c,a){
     ok=async()=>{const t=$('#fNote').value.trim();after(await commit(st=>{C(st,id).note=t},[{cage:id,type:'메모',text:t||'메모 지움'}]))};
   }
   if(a==='rename'){
-    h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: YJ cage, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1">`;
+    h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: 유진, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1">`;
     ok=async()=>{const nm=$('#fName').value.trim();after(await commit(st=>{C(st,id).name=nm},[{cage:id,type:'이름',text:nm||'이름 지움'}]))};
   }
   if(a==='census'){
@@ -695,7 +695,7 @@ function newCageForm(){
        <label>D.O.B <input type="date" id="nDob"></label>
        <label>반입처 <input id="nFrom" placeholder="예: 한양대, 오리엔트바이오" style="flex:1;min-width:0"></label>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="0" id="nM"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="0" id="nF"></label></div>
-       <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: YJ cage, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1;min-width:0"></label>
+       <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: 유진, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1;min-width:0"></label>
        <div class="row"><button class="btn pri" id="nOk">등록</button><span id="nMsg" class="dim"></span></div></div>`;
       $$('[data-nl]').forEach(b=>b.onclick=()=>{line=b.dataset.nl;draw()});
       $$('[data-np]').forEach(b=>b.onclick=()=>{purpose=b.dataset.np;reset();draw()});hookLine();
@@ -723,7 +723,7 @@ function newCageForm(){
      <div id="nrows" style="display:flex;flex-direction:column;gap:8px">${rows.map((r,i)=>`<div style="display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:10px;padding:8px"><select data-i="${i}" class="nsrc" aria-label="cage" style="width:100%">${a.map(x=>`<option value="${x.id}" ${x.id===r.src?'selected':''}>${cl(x)}</option>`).join('')}</select>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="${r.m}" data-i="${i}" class="nm"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="${r.f}" data-i="${i}" class="nf"></label></div></div>`).join('')}</div>
      <div class="row"><button class="btn" id="nAdd">+ 줄 추가</button><span id="nMsg" class="dim"></span></div>
-     <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: YJ cage, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1;min-width:0"></label>
+     <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: 유진, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1;min-width:0"></label>
      <div class="row"><button class="btn pri" id="nOk">${nid} 만들기</button></div></div>`;
     $$('[data-nl]').forEach(b=>b.onclick=()=>{line=b.dataset.nl;reset();draw()});
     $$('[data-np]').forEach(b=>b.onclick=()=>{purpose=b.dataset.np;reset();draw()});hookLine();
@@ -825,7 +825,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
-const VER='20261025133101';
+const VER='20261025133111';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
