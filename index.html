@@ -282,6 +282,7 @@ const isAdmin=()=>ME&&ME.role==='admin';
 const lit=(k,st=S)=>st.litters.find(l=>l.key===k);
 const C=(st,id)=>{const c=st.cages.find(x=>x.id===id);if(!c)throw new Error(id+' 없음');return c};
 const total=c=>c.m+c.f+(c.pups?c.pups.n:0);
+const fixMate=c=>{c.m=Math.max(0,c.m);c.f=Math.max(0,c.f);if(c.mate){c.mate.n=Math.min(c.mate.n,c.m);if(!c.mate.n||!c.f){if(c.f&&!c.mate.n)c.wait=c.mate.start;c.mate=null}}};
 const dobS=(x,st=S)=>{const l=lit(x.litter,st);return l?l.dob.slice(2).replace(/-/g,'.'):''};
 const pairS=c=>{const src=c.mate&&S.cages.find(x=>x.id===c.mate.from);const dl=src?lit(src.litter):c.dad?lit(c.dad):null;return dl?`♂ ${dl.dob.slice(2).replace(/-/g,'.')} × ♀ ${dobS(c)}`:''};
 const cl=x=>`${x.id} · DOB ${dobS(x)} · ${[x.m&&'♂'+x.m,x.f&&'♀'+x.f,x.pups&&'새끼 '+x.pups.n].filter(Boolean).join(' ')||'0'}`;
@@ -336,9 +337,9 @@ function renderTop(){
   $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():openCage(b.dataset.c));
 }
 function mice(c){
-  const row=(n,cl,sx)=>n?`<div><span class="sx ${cl}">${sx}</span>${'🐁'.repeat(n)}</div>`:'';
+  const row=(n,cl,sx)=>n>0?`<div><span class="sx ${cl}">${sx}</span>${'🐁'.repeat(n)}</div>`:n<0?`<div class="st late">${sx} ${n} 확인 필요</div>`:'';
   let h=row(c.m,'ma','♂')+row(c.f,'fe','♀');
-  if(c.pups)h+=`<div class="pups">${'<i></i>'.repeat(Math.min(c.pups.n,24))}<span>&nbsp;${c.pups.n}</span></div>`;
+  if(c.pups)h+=`<div class="pups">${'<i></i>'.repeat(Math.max(0,Math.min(c.pups.n,24)))}<span>&nbsp;${c.pups.n}</span></div>`;
   return `<div class="mice">${h||'<span class="dim">빈 cage</span>'}</div>`;
 }
 function renderBoard(){
@@ -377,7 +378,7 @@ function renderHandover(){
     <div class="row" style="margin:8px 0"><label for="hoA">NTBC aliquot</label><input id="hoA" placeholder="남은 vial" style="width:90px"><label><input type="checkbox" id="hoL"> LMO 작성 완료</label></div>
     <button class="btn pri" id="hoS" ${canEdit()?'':'disabled'}>보내기</button>
     <h4 style="margin-top:16px">받은 · 보낸 인수인계</h4>
-    ${HANDOVERS.map(x=>`<p style="margin:8px 0 0"><span class="dim">${md(x.week)} ${esc(x.from)} → ${esc(x.to)} · ${x.read?'확인':'<b>미확인</b>'}</span><br>${esc(x.text)}${!x.read&&x.to.includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
+    ${HANDOVERS.map(x=>`<p style="margin:8px 0 0"><span class="dim">${md(x.week)} ${esc(x.from)} → ${esc(x.to)} · 작성 ${esc(x.by||'')}${x.ts?.toDate?' '+fd(ymd(x.ts.toDate()))+' '+x.ts.toDate().toTimeString().slice(0,5):''} · ${x.read?`확인 ${esc(x.readBy||'')}`:'<b>미확인</b>'}</span><br>${esc(x.text)}${!x.read&&x.to.includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
    </section>
    <section><h4>이번 주 기록</h4><ul>${evs.map(e=>`<li>${md(e.date)} ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)}</li>`).join('')||'<li>기록 없음</li>'}</ul>
     <h4>다음 주 할 일</h4><ul>${todos().map(t=>`<li>${esc(t.t)}</li>`).join('')||'<li>없음</li>'}</ul>
@@ -385,7 +386,7 @@ function renderHandover(){
    </div>`;
   $('#hoS').onclick=async()=>{const text=[$('#hoT').value.trim(),$('#hoA').value&&'aliquot '+$('#hoA').value,$('#hoL').checked&&'LMO 작성 완료'].filter(Boolean).join(' / ')||'특이사항 없음';
     try{await Store.addHandover({week:w.week,from:w.pair.join(' · '),to:n.pair.join(' · '),text,read:false,by:ME.nick});toast('보냄')}catch(e){toast('저장 실패')}};
-  $$('[data-read]').forEach(b=>b.onclick=()=>Store.updateHandover(b.dataset.read,{read:true}));
+  $$('[data-read]').forEach(b=>b.onclick=()=>Store.updateHandover(b.dataset.read,{read:true,readBy:ME.nick}));
 }
 function renderMembers(){
   const opts=[['editor','당번'],['viewer','보기 전용'],['pending','승인 대기']];
@@ -453,7 +454,7 @@ function actForm(c,a){
   if(a==='death'||a==='exp'){
     h=`<div class="row">${c.m?num('fM','♂'):''}${c.f?num('fF','♀'):''}${c.pups?num('fP','새끼'):''}</div><input id="fMemo" placeholder="${a==='exp'?'실험명':'사유'}">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;if(!m&&!f&&!p)return;
-      after(await commit(st=>{const c=C(st,id);c.m-=Math.min(m,c.m);c.f-=Math.min(f,c.f);if(c.pups&&p){c.pups.n-=Math.min(p,c.pups.n);if(!c.pups.n)c.pups=null}},
+      after(await commit(st=>{const c=C(st,id);c.m-=Math.min(m,c.m);c.f-=Math.min(f,c.f);if(c.pups&&p){c.pups.n-=Math.min(p,c.pups.n);if(!c.pups.n)c.pups=null}fixMate(c)},
         [{cage:id,type:a==='exp'?'실험':'사망',n:m+f+p,text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,memo&&(a==='exp'?'· '+memo:'· 사유 '+memo)].filter(Boolean).join(' ')}]))};
   }
   if(a==='mate'){
@@ -500,7 +501,7 @@ function actForm(c,a){
   }
   if(a==='mateEnd'){
     h=`<div>♂${c.mate.n} → ${c.mate.from}</div>`;
-    ok=async()=>after(await commit(st=>{const c=C(st,id),s=C(st,c.mate.from);c.m-=c.mate.n;s.m+=c.mate.n;c.wait=c.mate.start;c.dad=s.litter;c.mate=null},
+    ok=async()=>after(await commit(st=>{const c=C(st,id),s=C(st,c.mate.from),n=Math.min(c.mate.n,c.m);c.m-=n;s.m+=n;c.wait=c.mate.start;c.dad=s.litter;c.mate=null},
       [{cage:id,type:'수컷 빼기',text:`♂${c.mate.n} → ${c.mate.from}`}]));
   }
   if(a==='noBirth'){h='<div>출산 대기 해제</div>';ok=async()=>after(await commit(st=>{C(st,id).wait=null},[{cage:id,type:'출산 없음',text:''}]))}
@@ -537,12 +538,12 @@ function actForm(c,a){
     ok=async()=>{const t=$('#fT').value,m=v('fM'),f=v('fF');if(!m&&!f)return;
       after(await commit(st=>{const c=C(st,id),mm=Math.min(m,c.m),ff=Math.min(f,c.f);let T;
         if(t==='__new'){T={id:`${c.litter}-${nextLetters(c.litter,1,st)[0]}`,line:c.line,litter:c.litter,m:0,f:0,pups:null,mate:null,wait:null,dad:null,note:''};st.cages.push(T)}else T=C(st,t);
-        c.m-=mm;c.f-=ff;T.m+=mm;T.f+=ff},[{cage:id,type:t==='__new'?'새 cage':'이동',text:`♂${m} ♀${f} → ${t==='__new'?nid:t}`}]))};
+        c.m-=mm;c.f-=ff;T.m+=mm;T.f+=ff;fixMate(c)},[{cage:id,type:t==='__new'?'새 cage':'이동',text:`♂${m} ♀${f} → ${t==='__new'?nid:t}`}]))};
   }
   if(a==='census'){
     h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div><input id="fMemo" placeholder="메모">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;
-      after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;if(!p)c.pups=null}},[{cage:id,type:'실사',text:`♂${c.m}♀${c.f} → ♂${m}♀${f} ${memo}`.trim()}]))};
+      after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;if(!p)c.pups=null}fixMate(c)},[{cage:id,type:'실사',text:`♂${c.m}♀${c.f} → ♂${m}♀${f} ${memo}`.trim()}]))};
   }
   F.innerHTML=`<div class="frm">${h}<div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
   $('#fOk').onclick=ok;
@@ -648,7 +649,7 @@ function newCageForm(){
       const evs=[{cage:nid,type:'새 cage',text:`${purpose} · ${src}`}];
       if(purpose==='메이팅')evs.push({cage:nid,type:'메이팅',text:`♂${M} from ${ms.id} (DOB ${dobS(ms)}) × ♀${Fm} from ${fs.id} (DOB ${dobS(fs)})`});
       const ok=await commit(st=>{const b=C(st,base.id),id=`${b.litter}-${nextLetters(b.litter,1,st)[0]}`;
-        R2.forEach(r=>{const x=C(st,r.src);if(x.m<r.m||x.f<r.f)throw new Error('마리수 부족');x.m-=r.m;x.f-=r.f});
+        R2.forEach(r=>{const x=C(st,r.src);if(x.m<r.m||x.f<r.f)throw new Error('마리수 부족');x.m-=r.m;x.f-=r.f;fixMate(x)});
         const t={id,line:b.line,litter:b.litter,m:M,f:Fm,pups:null,mate:null,wait:null,dad:null,note:'',purpose:purpose==='메이팅'?'':purpose};
         if(purpose==='메이팅'){t.mate={from:mSrc[0],n:M,start:todayS()};t.dad=C(st,mSrc[0]).litter}
         st.cages.push(t)},evs);
