@@ -259,7 +259,7 @@ function fbStore(){
     async backup(){const id=ymd(new Date());
       await db.doc('backups/'+id).set({t:FV.serverTimestamp(),by:ME.nick,main:clone(S),events:clone(EVENTS.map(e=>({...e,ts:e.ts?.toMillis?.()||null}))),handovers:clone(HANDOVERS.map(e=>({...e,ts:e.ts?.toMillis?.()||null})))}).catch(()=>{});
       if(isAdmin()){const old=ymd(new Date(Date.now()-60*864e5));const q=await db.collection('backups').where(firebase.firestore.FieldPath.documentId(),'<',old).get().catch(()=>null);q&&q.docs.forEach(x=>x.ref.delete().catch(()=>{}))}},
-    listBackups:async()=>(await db.collection('backups').orderBy(firebase.firestore.FieldPath.documentId(),'desc').limit(60).get()).docs.map(x=>({id:x.id,...x.data()})),
+    listBackups:async()=>(await db.collection('backups').get()).docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>b.id.localeCompare(a.id)),
     getReport:async()=>{const x=await db.doc('colony/report').get();return x.exists?x.data():{}},
     saveReport:p=>db.doc('colony/report').set(p,{merge:true}),
     addHandover:h=>db.collection('handovers').add({...h,ts:FV.serverTimestamp()}),
@@ -854,7 +854,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 쓰는 중엔 버튼만, 앱을 벗어났을 때 새로고침 */
-let NEWV=0;const VER='20261025134041';
+let NEWV=0;const VER='20261025134112';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload();else{const b=document.createElement('button');b.id='upd';b.textContent='새 버전 · 눌러서 적용';b.onclick=()=>location.reload();document.body.append(b)}}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
