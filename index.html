@@ -51,6 +51,11 @@ select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid 
 .todo button{border:0;text-align:left;background:var(--alert);color:var(--alert-ink);border-radius:10px;padding:7px 11px;font-size:13.5px;font-weight:700}
 .pres{display:flex;gap:4px}
 .pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#3a2a1a;border:2px solid var(--bg)}
+.card.mating{position:relative;overflow:hidden}
+.card.mating .id::after{content:" 💕"}
+.hrt{position:absolute;bottom:-14px;font-size:15px;color:#ff8fb3;opacity:0;animation:hrt 3.6s ease-in infinite;pointer-events:none}
+@keyframes hrt{0%{transform:translateY(0) scale(.7);opacity:0}15%{opacity:.9}100%{transform:translateY(-120px) scale(1.15);opacity:0}}
+@media (prefers-reduced-motion:reduce){.hrt{display:none}}
 .todo.mat button{background:var(--blue);color:var(--fg)}
 nav.tabs{display:flex;gap:2px;margin:16px 0 12px;border-bottom:1px solid var(--line);overflow-x:auto}
 nav.tabs button{border:0;background:none;padding:8px 12px;font-size:14px;white-space:nowrap;border-bottom:2px solid transparent}
@@ -347,7 +352,7 @@ function renderBoard(){
   (filt==='전체'?['FRG','FAH']:[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
     const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
     h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(c=>{const s=status(c);
-      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}" data-c="${esc(c.id)}"><span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${mice(c)}</button>`}).join('')}</div></div>`;
+      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}" data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${mice(c)}</button>`}).join('')}</div></div>`;
   }));
   $('#view').innerHTML=h;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
