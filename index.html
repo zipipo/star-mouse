@@ -17,13 +17,13 @@
   --frg:#fff6c9; --fah:#ffe4ec; --blue:#e0edff;
   --peach:#ffe0cc; --peach-2:#ffc8a6; --peach-ink:#5a2508;
   --male:#1f4fb8; --female:#c2185b; --pup:#f7b3cb;
-  --alert:#ffd0cc; --alert-ink:#c4161c; --new:#e6f7d4;
+  --alert:#ffd0cc; --alert-ink:#c4161c; --new:#e6f7d4; --gen:#f0eedb;
   --font:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#17181c; --fg:#f3f3f5; --sub:#cfd2d9; --line:#2d2f36; --soft:#202228;
   --frg:#4b4520; --fah:#4d2a36; --blue:#22344f; --peach:#4d3122; --peach-2:#7a4a30; --peach-ink:#ffe0cc;
-  --male:#9cc2ff; --female:#ff9cc6; --pup:#b56d88; --alert:#5a2420; --alert-ink:#ffaaa2; --new:#2d4222; color-scheme:dark}}
+  --male:#9cc2ff; --female:#ff9cc6; --pup:#b56d88; --alert:#5a2420; --alert-ink:#ffaaa2; --new:#2d4222; --gen:#3d3b2c; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -575,7 +575,7 @@ const GF=[['no','Cage No.'],['owner','연구자'],['strain','Strain'],['iacuc','
 function renderGeneral(){
   const G=S.general||[];
   $('#view').innerHTML=`<div class="filters"><span class="dim">개인 실험용 · 쓰고 싶은 사람만</span>${canEdit()?'<button class="btn pri" id="gAdd" style="margin-left:auto">+ 일반 cage</button>':''}</div>
-   <div class="cards">${G.map((g,i)=>`<button class="card" style="background:var(--blue)" data-g="${i}"><span class="id">${esc(g.no||'번호 없음')}</span>
+   <div class="cards">${G.map((g,i)=>`<button class="card" style="background:var(--gen)" data-g="${i}"><span class="id">${esc(g.no||'번호 없음')}</span>
      <span class="dim">${esc(g.strain||'')}${g.dob?' · DOB '+fd(g.dob):''}</span><span class="dim">${esc(g.owner||'')}</span>${mice({m:+g.m||0,f:+g.f||0})}${g.memo?`<span class="dim">${esc(g.memo)}</span>`:''}</button>`).join('')||'<p class="dim">아직 없음</p>'}</div>
    <p class="dim">합계 ${G.reduce((a,g)=>a+(+g.m||0)+(+g.f||0),0)}마리 · ${G.length} cage</p>`;
   if($('#gAdd'))$('#gAdd').onclick=()=>generalForm(-1);
@@ -584,7 +584,7 @@ function renderGeneral(){
 function generalForm(i){
   CUR=null;const g=i>=0?S.general[i]:{strain:'C57BL/6',owner:ME.name};
   $('#dT').textContent=i>=0?(g.no||'일반 cage'):'일반 cage 추가';
-  $('#dB').innerHTML=`<div class="frm" style="background:var(--blue)">${GF.map(([k,l,t])=>`<label>${SXL(l)} <input id="g_${k}" ${t?`type="${t}"`:''} value="${esc(g[k]??'')}" ${t==='number'?'min="0" style="width:70px"':'style="flex:1;min-width:0"'} ${canEdit()?'':'disabled'}></label>`).join('')}
+  $('#dB').innerHTML=`<div class="frm" style="background:var(--gen)">${GF.map(([k,l,t])=>`<label>${SXL(l)} <input id="g_${k}" ${t?`type="${t}"`:''} value="${esc(g[k]??'')}" ${t==='number'?'min="0" style="width:70px"':'style="flex:1;min-width:0"'} ${canEdit()?'':'disabled'}></label>`).join('')}
    ${canEdit()?`<div class="row"><button class="btn pri" id="gOk">저장</button>${i>=0?'<button class="btn" id="gDel">삭제</button><span id="gQ"></span>':''}</div>`:''}</div>`;
   if(!canEdit()){$('#dlg').showModal();return}
   $('#gOk').onclick=async()=>{const v={};GF.forEach(([k,,t])=>{const x=$('#g_'+k).value.trim();v[k]=t==='number'?(+x||0):x});
