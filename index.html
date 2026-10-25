@@ -52,7 +52,6 @@ select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid 
 .pres{display:flex;gap:4px}
 .pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#3a2a1a;border:2px solid var(--bg)}
 .card.mating{position:relative;overflow:hidden}
-.card.mating .id::after{content:" 💕"}
 .hrt{position:absolute;bottom:-14px;font-size:15px;color:#ff8fb3;opacity:0;animation:hrt 3.6s ease-in infinite;pointer-events:none}
 @keyframes hrt{0%{transform:translateY(0) scale(.7);opacity:0}15%{opacity:.9}100%{transform:translateY(-120px) scale(1.15);opacity:0}}
 @media (prefers-reduced-motion:reduce){.hrt{display:none}}
@@ -74,7 +73,7 @@ nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
 .card .id{font-weight:700;font-size:14.5px}
 .st{font-size:12.5px;font-weight:700}.st.late{color:var(--alert-ink)}
 .mice{font-size:15px;line-height:1.35;word-break:break-all}
-.sx{font-size:12px;font-weight:700;display:inline-block;margin-right:4px}
+.sx{font-size:17px;font-weight:700;display:inline-block;margin-right:4px;vertical-align:-1px}
 .ma{color:var(--male);font-weight:700}.fe{color:var(--female);font-weight:700}
 
 .pups{display:flex;flex-wrap:wrap;gap:3px;align-items:center;font-size:12.5px}
@@ -350,7 +349,7 @@ function renderTop(){
   $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():openCage(b.dataset.c));
 }
 function mice(c){
-  const row=(n,cl,sx)=>n>0?`<div><span class="sx ${cl}">${sx} ${sx==='♂'?'수컷':'암컷'}</span>${'🐁'.repeat(n)}</div>`:n<0?`<div class="st late">${sx} ${n} 확인 필요</div>`:'';
+  const row=(n,cl,sx)=>n>0?`<div><span class="sx ${cl}">${sx}</span>${'🐁'.repeat(n)}</div>`:n<0?`<div class="st late">${sx} ${n} 확인 필요</div>`:'';
   let h=row(c.m,'ma','♂')+row(c.f,'fe','♀');
   if(c.pups)h+=`<div class="pups">${'<i></i>'.repeat(Math.max(0,Math.min(c.pups.n,24)))}<span>&nbsp;${c.pups.n}</span></div>`;
   return `<div class="mice">${h||'<span class="dim">빈 cage</span>'}</div>`;
@@ -803,6 +802,9 @@ function drawPres(){
   const col=u=>PCOL[[...u].reduce((a,c)=>a+c.charCodeAt(0),0)%PCOL.length];
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
+/* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
+const fixMT=n=>{const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);let t;while(t=w.nextNode())if(t.data.includes('메이팅'))t.data=t.data.replace(/메이팅/g,'Mating')};
+new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===3){if(n.data.includes('메이팅'))n.data=n.data.replace(/메이팅/g,'Mating')}else if(n.nodeType===1)fixMT(n)}))).observe(document.body,{childList:true,subtree:true});
 function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==which)}
 function go(t){tab=t;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
