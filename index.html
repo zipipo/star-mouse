@@ -117,6 +117,8 @@ input[type=number]{width:62px}
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:99px;font-size:13px;z-index:30}
 @media (max-width:640px){.ho{grid-template-columns:1fr}.qa{grid-template-columns:repeat(3,1fr)}}
 details>summary.more .c,details[open]>summary.more .o{display:none}details[open]>summary.more .c{display:inline}summary.more{list-style:none}summary.more::-webkit-details-marker{display:none}
+.wl-d{font-weight:700;margin:12px 0 4px;font-size:14px}.wl{padding:6px 10px;border-radius:8px;background:var(--soft);margin:4px 0;font-size:13.5px}.wl-t{font-size:12px;padding:1px 7px;border-radius:9px;background:#fff;color:#7a6a5a;margin-left:2px}.wl-x{color:#6b6b6b;font-size:13px;margin-top:2px;line-height:1.4}
+#upd{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:50;border:0;border-radius:20px;padding:8px 16px;background:#ffd6b8;color:#7a3e10;font-weight:700;box-shadow:0 2px 8px #0002}
 </style>
 </head>
 <body>
@@ -302,6 +304,8 @@ const XCOL=['#e3f4dc','#efe6ff','#dff4f7','#fbe8d6','#f0f0e0'];
 const lcol=l=>['FRG','FAH'].includes(l)?'':XCOL[Math.max(0,LINES().indexOf(l)-2)%XCOL.length];
 const cst=c=>!(c.pups||c.mate||c.wait)&&lcol(c.line)?` style="background:${lcol(c.line)}"`:'';
 const inds=(c,sx)=>{const n=sx==='m'?c.m:c.f,a=(c[sx==='m'?'indM':'indF']||[]).slice(0,Math.max(0,n)).map((o,i)=>({...(o||{}),no:(o&&o.no)||i+1}));let k=Math.max(0,...a.map(o=>o.no));while(a.length<n)a.push({no:++k});return a};
+const weekLog=evs=>{if(!evs.length)return '<div class="dim">기록 없음</div>';const g={};evs.forEach(e=>(g[e.date]=g[e.date]||[]).push(e));const W='일월화수목금토';
+  return Object.keys(g).sort().reverse().map(dt=>`<div class="wl-d">${md(dt)} (${W[d(dt).getDay()]}) <span class="dim">${g[dt].length}건</span></div>${g[dt].map(e=>`<div class="wl"><div><b>${esc(e.cage)}</b> <span class="wl-t">${esc(e.type)}</span></div><div class="wl-x">${esc(String(e.text||'').replace(/\s*\(DOB [^)]*\)/g,''))}</div></div>`).join('')}`).join('')};
 const indS=c=>{const N='①②③④⑤⑥⑦⑧⑨⑩⑪⑫',f=(arr,n,sx)=>arr.map(o=>o.ear||o.memo?`${sx}${N[o.no-1]||o.no} ${[o.ear,o.memo].filter(Boolean).join(' ')}`:'').filter(Boolean);return [...f(inds(c,'m'),0,'♂'),...f(inds(c,'f'),0,'♀')].join(' · ')};
 const notesOf=c=>[...(c.note?[{t:'',by:'',text:c.note,legacy:1}]:[]),...(c.notes||[]).map((n,i)=>({...n,i}))].sort((a,b)=>(b.t||'').localeCompare(a.t||'')||((b.i??-1)-(a.i??-1)));
 const nowS=()=>{const d=new Date();return `${ymd(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`};
@@ -410,7 +414,7 @@ function renderHandover(){
     <h4 style="margin-top:16px">받은 · 보낸 인수인계</h4>
     ${HANDOVERS.map(x=>`<p style="margin:8px 0 0"><span class="dim">${md(x.week)} ${esc(x.from)} → ${esc(x.to)} · 작성 ${esc(x.by||'')}${x.ts?.toDate?' '+fd(ymd(x.ts.toDate()))+' '+x.ts.toDate().toTimeString().slice(0,5):''} · ${x.read?`확인 ${esc(x.readBy||'')}`:'<b>미확인</b>'}</span><br>${esc(x.text)}${!x.read&&x.to.includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
    </section>
-   <section><h4>이번 주 기록</h4><ul>${evs.map(e=>`<li>${md(e.date)} ${esc(e.cage)} ${esc(e.type)} ${esc(e.text)}</li>`).join('')||'<li>기록 없음</li>'}</ul>
+   <section><h4>이번 주 기록</h4>${weekLog(evs)}
     <h4>다음 주 할 일</h4><ul>${todos().map(t=>`<li>${esc(t.t)}</li>`).join('')||'<li>없음</li>'}</ul>
     <h4>음수 추가 교체</h4><ul><li>${N.bigIds.join(', ')}</li></ul></section>
    </div>`;
@@ -849,10 +853,11 @@ function drawPres(){
   const col=u=>cmap[u];
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
-/* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
-const VER='20261025133856';
+/* 새 버전: 쓰는 중엔 버튼만, 앱을 벗어났을 때 새로고침 */
+let NEWV=0;const VER='20261025134041';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
-  if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
+  if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload();else{const b=document.createElement('button');b.id='upd';b.textContent='새 버전 · 눌러서 적용';b.onclick=()=>location.reload();document.body.append(b)}}}catch(e){}},60000);
+document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
 const fixMT=n=>{const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);let t;while(t=w.nextNode())if(t.data.includes('메이팅'))t.data=t.data.replace(/메이팅/g,'Mating')};
 new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===3){if(n.data.includes('메이팅'))n.data=n.data.replace(/메이팅/g,'Mating')}else if(n.nodeType===1)fixMT(n)}))).observe(document.body,{childList:true,subtree:true});
