@@ -564,7 +564,7 @@ function actForm(c,a){
     ok=async()=>{const t=$('#fNote').value.trim();after(await commit(st=>{C(st,id).note=t},[{cage:id,type:'메모',text:t||'메모 지움'}]))};
   }
   if(a==='rename'){
-    h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: DY cage, HG&YJ cage" maxlength="30" style="flex:1">`;
+    h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: YJ cage, HG&YJ cage" maxlength="30" style="flex:1">`;
     ok=async()=>{const nm=$('#fName').value.trim();after(await commit(st=>{C(st,id).name=nm},[{cage:id,type:'이름',text:nm||'이름 지움'}]))};
   }
   if(a==='census'){
@@ -678,7 +678,7 @@ function newCageForm(){
        <div class="row">${LINES().map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
        <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
        <div class="dim">밖에서 새로 들어온 마우스 · 새 litter ${esc(line)} ${nextNo(line)} 로 등록</div>
-       <label>cage 이름 <input id="nName" placeholder="선택 · 예: DY cage, HG&YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
+       <label>cage 이름 <input id="nName" placeholder="선택 · 예: YJ cage, HG&YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
        <label>D.O.B <input type="date" id="nDob"></label>
        <label>반입처 <input id="nFrom" placeholder="예: 한양대, 오리엔트바이오" style="flex:1;min-width:0"></label>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="0" id="nM"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="0" id="nF"></label></div>
@@ -705,7 +705,7 @@ function newCageForm(){
     $('#dB').innerHTML=`<div class="frm">
      <div class="row">${LINES().map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
      <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
-     <label>cage 이름 <input id="nName" placeholder="선택 · 예: DY cage" maxlength="30" style="flex:1;min-width:0"></label>
+     <label>cage 이름 <input id="nName" placeholder="선택 · 예: YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
      <div class="dim">데려올 마우스 고르기 · 새 cage 번호 ${nid}</div>
      <div id="nrows" style="display:flex;flex-direction:column;gap:8px">${rows.map((r,i)=>`<div style="display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:10px;padding:8px"><select data-i="${i}" class="nsrc" aria-label="cage" style="width:100%">${a.map(x=>`<option value="${x.id}" ${x.id===r.src?'selected':''}>${cl(x)}</option>`).join('')}</select>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="${r.m}" data-i="${i}" class="nm"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="${r.f}" data-i="${i}" class="nf"></label></div></div>`).join('')}</div>
