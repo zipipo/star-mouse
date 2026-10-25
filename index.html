@@ -547,7 +547,7 @@ function actForm(c,a){
       const text=rows.map((r,i)=>r.n?`${k}-${Ls[i]} ${r.sx}${r.n}`:'').filter(Boolean).join(' / ')+(lmo?' · LMO 작성 완료':'');
       after(await commit(st=>{const c=C(st,id);const Ls=nextLetters(k,rows.length,st);
         rows.forEach((r,i)=>{if(!r.n)return;st.cages.push({id:`${k}-${Ls[i]}`,line:c.line,litter:k,m:r.sx==='♂'?r.n:0,f:r.sx==='♀'?r.n:0,pups:null,mate:null,wait:null,dad:null,note:''})});
-        const left=c.pups.n-rows.reduce((a,r)=>a+r.n,0);c.pups=left>0?{...c.pups,n:left}:null},[{cage:id,type:'새끼 암수 분리',text}]))};
+        const left=c.pups.n-rows.reduce((a,r)=>a+r.n,0);c.pups=left>0?{...c.pups,n:left}:null;if(!c.pups&&/새끼/.test(c.note||''))c.note=''},[{cage:id,type:'새끼 암수 분리',text}]))};
     return;
   }
   if(a==='move'){
