@@ -864,10 +864,10 @@ function drawPres(){
   const col=u=>cmap[u];
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
-/* 새 버전: 쓰는 중엔 버튼만, 앱을 벗어났을 때 새로고침 */
-let NEWV=0;const VER='20261025134416';
+/* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
+let NEWV=0;const VER='20261025134806';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
-  if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload();else{const b=document.createElement('button');b.id='upd';b.textContent='새 버전 · 눌러서 적용';b.onclick=()=>location.reload();document.body.append(b)}}}catch(e){}},60000);
+  if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
 const fixMT=n=>{const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);let t;while(t=w.nextNode())if(t.data.includes('메이팅'))t.data=t.data.replace(/메이팅/g,'Mating')};
