@@ -809,6 +809,10 @@ function drawPres(){
   const col=u=>PCOL[[...u].reduce((a,c)=>a+c.charCodeAt(0),0)%PCOL.length];
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
+/* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
+const VER='20261025111726';
+setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
+  if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
 const fixMT=n=>{const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);let t;while(t=w.nextNode())if(t.data.includes('메이팅'))t.data=t.data.replace(/메이팅/g,'Mating')};
 new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===3){if(n.data.includes('메이팅'))n.data=n.data.replace(/메이팅/g,'Mating')}else if(n.nodeType===1)fixMT(n)}))).observe(document.body,{childList:true,subtree:true});
