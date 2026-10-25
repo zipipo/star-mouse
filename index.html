@@ -295,6 +295,7 @@ const WEANL=l=>WEAN[l]||[21,28];
 const XCOL=['#e3f4dc','#efe6ff','#dff4f7','#fbe8d6','#f0f0e0'];
 const lcol=l=>['FRG','FAH'].includes(l)?'':XCOL[Math.max(0,LINES().indexOf(l)-2)%XCOL.length];
 const cst=c=>!(c.pups||c.mate||c.wait)&&lcol(c.line)?` style="background:${lcol(c.line)}"`:'';
+const indS=c=>{const N='①②③④⑤⑥⑦⑧⑨⑩⑪⑫',f=(arr,n,sx)=>(arr||[]).slice(0,n).map((o,i)=>o&&(o.ear||o.memo)?`${sx}${N[i]||i+1} ${[o.ear,o.memo].filter(Boolean).join(' ')}`:'').filter(Boolean);return [...f(c.indM,c.m,'♂'),...f(c.indF,c.f,'♀')].join(' · ')};
 const cname=c=>c.name?`${esc(c.name)} <span class="dim" style="font-weight:400;font-size:12px">${c.id}</span>`:c.id;
 const fixMate=c=>{c.m=Math.max(0,c.m);c.f=Math.max(0,c.f);if(!c.f)c.wait=null;if(c.mate){c.mate.n=Math.min(c.mate.n,c.m);if(!c.mate.n||!c.f){if(c.f&&!c.mate.n)c.wait=c.mate.start;c.mate=null}}};
 const dobS=(x,st=S)=>{const l=lit(x.litter,st);return l?l.dob.slice(2).replace(/-/g,'.'):''};
@@ -362,7 +363,7 @@ function renderBoard(){
   (filt==='전체'?LINES():[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
     const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
     h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(c=>{const s=status(c);
-      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${c.note?`<span class="memo">📝 ${esc(c.note)}</span>`:''}${c.mate?`<div class="row" style="gap:6px"><img src="mating.png" alt="Mating" style="height:54px;width:auto">${c.m>1||c.f>1?`<span><span class="ma">♂${c.m}</span> <span class="fe">♀${c.f}</span></span>`:''}</div>`:mice(c)}</button>`}).join('')}</div></div>`;
+      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${c.note?`<span class="memo">📝 ${esc(c.note)}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?`<div class="row" style="gap:6px"><img src="mating.png" alt="Mating" style="height:54px;width:auto">${c.m>1||c.f>1?`<span><span class="ma">♂${c.m}</span> <span class="fe">♀${c.f}</span></span>`:''}</div>`:mice(c)}</button>`}).join('')}</div></div>`;
   }));
   $('#view').innerHTML=h;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
@@ -433,8 +434,8 @@ function render(){
 }
 
 /* ===== cage 상세 + 입력 ===== */
-const can=(c,k)=>({mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
-const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사'],['memo','메모'],['rename','이름']];
+const can=(c,k)=>({ind:c.m+c.f>0,mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
+const ACTS=[['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사'],['memo','메모'],['ind','개체 표시'],['rename','이름']];
 const MATE_T=['메이팅','출산','수컷 빼기','출산 없음'];
 const slim=t=>String(t||'').replace(/ \(DOB [^)]+\)/g,'').replace(/from /g,'');
 const listH=(items,line)=>{if(!items.length)return '<ul class="tl"><li class="dim">없음</li></ul>';
@@ -457,6 +458,7 @@ function openCage(id,act){
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}</div>
    <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`<div class="qa">${ACTS.filter(([k])=>can(c,k)).map(([k,t])=>`<button data-a="${k}" class="${act===k||(!act&&k===nx)?'on':''}">${t}</button>`).join('')}</div><div id="form"></div>`:''}
+   ${indS(c)?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 개체 표시</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(indS(c)).replace(/ · /g,'<br>')}</div>`:''}
    ${c.note?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="white-space:pre-wrap;background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(c.note)}</div>`:''}
    <h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} ${maleOnly?'메이팅 이력':'메이팅 · 출산 이력'}</h4>
    ${listH(hist,h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`)}
@@ -561,12 +563,23 @@ function actForm(c,a){
         if(t==='__new'){T={id:`${c.litter}-${nextLetters(c.litter,1,st)[0]}`,line:c.line,litter:c.litter,m:0,f:0,pups:null,mate:null,wait:null,dad:null,note:''};st.cages.push(T)}else T=C(st,t);
         c.m-=mm;c.f-=ff;T.m+=mm;T.f+=ff;fixMate(c)},[{cage:id,type:t==='__new'?'새 cage':'이동',text:`♂${m} ♀${f} → ${t==='__new'?nid:t}`}]))};
   }
+  if(a==='ind'){
+    const EARS=['','귀 X','왼쪽','오른쪽','양쪽'],N='①②③④⑤⑥⑦⑧⑨⑩⑪⑫';
+    const rowI=(sx,i,o)=>`<div class="row" style="gap:6px"><b class="${sx==='m'?'ma':'fe'}" style="min-width:34px">${sx==='m'?'♂':'♀'}${N[i]||i+1}</b>
+      <select class="iear" data-s="${sx}" data-i="${i}" aria-label="귀 표시">${EARS.map(e=>`<option value="${e}" ${o.ear===e?'selected':''}>${e||'귀 표시 없음'}</option>`).join('')}</select>
+      <input class="imemo" data-s="${sx}" data-i="${i}" value="${esc(o.memo||'')}" placeholder="메모" style="flex:1;min-width:80px"></div>`;
+    h=`<div class="dim">구별할 표시가 있는 개체만 적으면 돼요</div>${[...Array(c.m)].map((_,i)=>rowI('m',i,(c.indM||[])[i]||{})).join('')}${[...Array(c.f)].map((_,i)=>rowI('f',i,(c.indF||[])[i]||{})).join('')}`;
+    ok=async()=>{const M=[...Array(c.m)].map(()=>({})),Fm=[...Array(c.f)].map(()=>({}));
+      $$('.iear').forEach(e=>{(e.dataset.s==='m'?M:Fm)[e.dataset.i].ear=e.value});$$('.imemo').forEach(e=>{(e.dataset.s==='m'?M:Fm)[e.dataset.i].memo=e.value.trim()});
+      const txt=[...M.map((o,i)=>o.ear||o.memo?`♂${N[i]} ${[o.ear,o.memo].filter(Boolean).join(' ')}`:''),...Fm.map((o,i)=>o.ear||o.memo?`♀${N[i]} ${[o.ear,o.memo].filter(Boolean).join(' ')}`:'')].filter(Boolean).join(' / ');
+      after(await commit(st=>{const c=C(st,id);c.indM=M;c.indF=Fm},[{cage:id,type:'개체 표시',text:txt||'표시 지움'}]))};
+  }
   if(a==='memo'){
     h=`<textarea id="fNote" maxlength="300" placeholder="예: 귀 cutting ④ X ⑤ left / 상태 안 좋음">${esc(c.note||'')}</textarea>`;
     ok=async()=>{const t=$('#fNote').value.trim();after(await commit(st=>{C(st,id).note=t},[{cage:id,type:'메모',text:t||'메모 지움'}]))};
   }
   if(a==='rename'){
-    h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: YJ cage, HG&YJ cage" maxlength="30" style="flex:1">`;
+    h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: YJ cage, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1">`;
     ok=async()=>{const nm=$('#fName').value.trim();after(await commit(st=>{C(st,id).name=nm},[{cage:id,type:'이름',text:nm||'이름 지움'}]))};
   }
   if(a==='census'){
@@ -679,11 +692,10 @@ function newCageForm(){
       $('#dB').innerHTML=`<div class="frm">
        <div class="row">${[...new Set([...LINES(),line])].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
        <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
-       <div class="dim">밖에서 새로 들어온 마우스 · 새 litter ${esc(line)} ${nextNo(line)} 로 등록</div>
        <label>D.O.B <input type="date" id="nDob"></label>
        <label>반입처 <input id="nFrom" placeholder="예: 한양대, 오리엔트바이오" style="flex:1;min-width:0"></label>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="0" id="nM"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="0" id="nF"></label></div>
-       <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
+       <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: YJ cage, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1;min-width:0"></label>
        <div class="row"><button class="btn pri" id="nOk">등록</button><span id="nMsg" class="dim"></span></div></div>`;
       $$('[data-nl]').forEach(b=>b.onclick=()=>{line=b.dataset.nl;draw()});
       $$('[data-np]').forEach(b=>b.onclick=()=>{purpose=b.dataset.np;reset();draw()});hookLine();
@@ -711,7 +723,7 @@ function newCageForm(){
      <div id="nrows" style="display:flex;flex-direction:column;gap:8px">${rows.map((r,i)=>`<div style="display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:10px;padding:8px"><select data-i="${i}" class="nsrc" aria-label="cage" style="width:100%">${a.map(x=>`<option value="${x.id}" ${x.id===r.src?'selected':''}>${cl(x)}</option>`).join('')}</select>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="${r.m}" data-i="${i}" class="nm"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="${r.f}" data-i="${i}" class="nf"></label></div></div>`).join('')}</div>
      <div class="row"><button class="btn" id="nAdd">+ 줄 추가</button><span id="nMsg" class="dim"></span></div>
-     <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: YJ cage" maxlength="30" style="flex:1;min-width:0"></label>
+     <label class="dim">cage 이름 · 선택 <input id="nName" placeholder="예: YJ cage, Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1;min-width:0"></label>
      <div class="row"><button class="btn pri" id="nOk">${nid} 만들기</button></div></div>`;
     $$('[data-nl]').forEach(b=>b.onclick=()=>{line=b.dataset.nl;reset();draw()});
     $$('[data-np]').forEach(b=>b.onclick=()=>{purpose=b.dataset.np;reset();draw()});hookLine();
@@ -813,7 +825,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전 자동 반영: version.txt가 바뀌면 창이 닫혀 있을 때 새로고침 */
-const VER='20261025132827';
+const VER='20261025133101';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER){if(!$('#dlg').open)location.reload();else{toast('새 버전이 있어요. 창을 닫으면 반영돼요')}}}catch(e){}},60000);
 /* 화면 표기: 메이팅 → Mating (데이터 값은 그대로) */
