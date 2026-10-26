@@ -324,8 +324,11 @@ function status(c){
   if(c.wait){const n=days(c.wait),a=addD(c.wait,GEST[0]),b=addD(c.wait,GEST[1]);return{t:n>GEST[1]?`출산 예정일 지남 (${md(a)}~${md(b)})`:`출산 예정 ${md(a)}~${md(b)}`,late:n>=GEST[0]}}
   return null;
 }
+const NTBC_GAP=14;
+const ntbcNext=()=>{const L=(S.ntbcLog||[]).filter(x=>x.scope==='전체').map(x=>x.date).sort().pop();return L?{last:L,next:addD(L,NTBC_GAP)}:null};
 function todos(){
-  const o=[];
+  const o=[],nb=ntbcNext();
+  if(nb&&-days(nb.next)<=6)o.push({id:'__ntbc',t:`NTBC 전체 교체 ${md(nb.next)}`});
   S.cages.forEach(c=>{
     if(c.pups){const [a,b]=WEANL(c.line),p=days(c.pups.born);if(p>=a-7)o.push({id:c.id,t:`${c.id} 새끼 암수 분리 ${md(addD(c.pups.born,a))}~${md(addD(c.pups.born,b))}`})}
     if(c.mate&&days(c.mate.start)>=MATE_DAYS-2)o.push({id:c.id,t:`${c.id} 수컷 빼기 ${md(addD(c.mate.start,MATE_DAYS))}`});
@@ -355,16 +358,17 @@ function renderTop(){
   const wd=new Date().getDay(), [w,n,n2]=sched(8,wd===0||wd===6?1:0), mine=w.pair.includes(ME.name), N=ntbc();
   const thisWeek=(S.ntbcLog||[]).filter(x=>x.date>=w.week);
   $('#duty').innerHTML=`<div><div>${rng(w)} <b>${w.pair.join(' · ')}</b>${mine?' 🐾 내 차례':''}</div>
-    <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}${thisWeek.length?` · 교체 ${thisWeek.map(x=>md(x.date)).join(', ')}`:''}</div></div>
+    <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}${thisWeek.length?` · 교체 ${thisWeek.map(x=>md(x.date)).join(', ')}`:''}</div>
+    <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
   const st=LINES().map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
-  $('#todo').innerHTML=todos().sort((a,b)=>a.id==='__report'?-1:b.id==='__report'?1:a.id.localeCompare(b.id,'ko',{numeric:true})).map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
+  $('#todo').innerHTML=todos().sort((a,b)=>a.id.startsWith('__')?-1:b.id.startsWith('__')?1:a.id.localeCompare(b.id,'ko',{numeric:true})).map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
   const byLine=(a,b)=>(LINES().indexOf(a.line)-LINES().indexOf(b.line))||a.id.localeCompare(b.id,'ko',{numeric:true});
   $('#mat').innerHTML=S.cages.filter(c=>c.mate||c.wait).sort((a,b)=>byLine(a,b)||((a.mate?0:1)-(b.mate?0:1))).map(c=>`<button data-c="${esc(c.id)}"><b>${c.id}</b> · ${pairS(c)} · ${c.mate?`메이팅 D${days(c.mate.start)}`:`출산 예정 ${md(addD(c.wait,GEST[0]))}~${md(addD(c.wait,GEST[1]))}`}</button>`).join('');
-  $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():openCage(b.dataset.c));
+  $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():b.dataset.c==='__ntbc'?ntbcForm():openCage(b.dataset.c));
 }
 function mice(c){
   const row=(n,cl,sx)=>n>0?`<div><span class="sx ${cl}">${sx}</span>${'🐁'.repeat(n)}</div>`:n<0?`<div class="st late">${sx} ${n} 확인 필요</div>`:'';
@@ -798,6 +802,7 @@ function ntbcForm(){
   const N=ntbc();
   $('#dT').textContent='NTBC 교체';
   $('#dB').innerHTML=`<div class="frm">
+   ${(nb=>nb?`<div>마지막 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}</div>`:'')(ntbcNext())}
    <div>전체 ${N.all} cage → <b>${N.va} vial</b><br>4마리↑·출산 ${N.big} cage → <b>${N.vb} vial</b></div>
    <div class="row"><input type="date" id="nD" value="${todayS()}" aria-label="날짜"><select id="nS" aria-label="범위"><option>전체</option><option>4마리↑</option></select><button class="btn pri" id="nOk">저장</button></div></div>`;
   $('#nOk').onclick=async()=>{const date=$('#nD').value,scope=$('#nS').value;
@@ -865,7 +870,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261025134845';
+let NEWV=0;const VER='20261026171255';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
