@@ -400,16 +400,13 @@ function renderTree(){
   $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));$$('[data-mc]').forEach(b=>b.onclick=()=>openCage(b.dataset.mc));
 }
 function renderLog(){
-  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button><button class="btn pri" id="rpt">월간 현황조사표</button>${isAdmin()?'<button class="btn" id="rst">테스트 기록 지우고 다시 시작</button><span id="rstQ"></span><button class="btn" id="bkB">백업</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th></tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}</td><td>${esc(e.by)}</td></tr>`).join('')}</table></div>`;
+  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button><button class="btn pri" id="rpt">월간 현황조사표</button>${isAdmin()?'<button class="btn" id="bkB">백업</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th></tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}</td><td>${esc(e.by)}</td></tr>`).join('')}</table></div>`;
   $('#xls').onclick=exportXlsx;$('#rpt').onclick=reportForm;
   if(isAdmin())$('#bkB').onclick=async()=>{const P=$('#bkP');P.textContent='불러오는 중…';let L;try{L=await Store.listBackups()}catch(e){P.textContent='백업 목록 못 불러옴';return}
     P.innerHTML=`<div class="ox"><table class="log"><tr><th>날짜</th><th>저장한 사람</th><th></th></tr>${L.map((b,i)=>`<tr><td>${esc(b.id)}</td><td>${esc(b.by||'')}</td><td><button class="btn" data-bd="${i}">내려받기</button> <button class="btn" data-br="${i}">이 날로 되돌리기</button></td></tr>`).join('')||'<tr><td colspan=3>아직 없음</td></tr>'}</table></div>`;
     $$('[data-bd]').forEach(x=>x.onclick=()=>{const b=L[+x.dataset.bd],u=URL.createObjectURL(new Blob([JSON.stringify(b,null,1)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=`star-mouse-backup-${b.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)});
     $$('[data-br]').forEach(x=>x.onclick=()=>{const b=L[+x.dataset.br];x.outerHTML=`<span>cage 현황을 ${esc(b.id)} 상태로 바꿀까요? <button class="btn pri" id="brY">되돌리기</button></span>`;
       $('#brY').onclick=async()=>{if(await commit(st=>{Object.keys(st).forEach(k=>delete st[k]);Object.assign(st,clone(b.main))},[{cage:'백업',type:'되돌리기',text:b.id+' 상태로'}]))toast('되돌림')}})};
-  if(isAdmin())$('#rst').onclick=()=>{$('#rstQ').innerHTML=' 기록·인수인계 전부 지우고 2026.10.15 엑셀 기준으로 돌아가요. <button class="btn pri" id="rstY">지우기</button> <button class="btn" id="rstN">취소</button>';
-    $('#rstN').onclick=()=>$('#rstQ').innerHTML='';
-    $('#rstY').onclick=async()=>{$('#rstQ').textContent=' 지우는 중…';try{await Store.reset(seedState(),SEED_EVENTS);toast('다시 시작함')}catch(e){toast('실패');console.error(e)}}};
 }
 function renderHandover(){
   const [w,n]=sched(), evs=EVENTS.filter(e=>e.date>=w.week), N=ntbc();
@@ -870,7 +867,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261026171255';
+let NEWV=0;const VER='20261027215214';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
