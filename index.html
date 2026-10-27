@@ -318,7 +318,7 @@ function status(c){
   if(c.wait){const n=days(c.wait),a=addD(c.wait,GEST[0]),b=addD(c.wait,GEST[1]);return{t:n>GEST[1]?`출산 예정일 지남 (${md(a)}~${md(b)})`:`출산 예정 ${md(a)}~${md(b)}`,late:n>=GEST[0]}}
   return null;
 }
-const NTBC_GAP=14;
+const NTBC_GAP=7;
 const ntbcNext=()=>{const L=(S.ntbcLog||[]).filter(x=>x.scope==='전체').map(x=>x.date).sort().pop();return L?{last:L,next:addD(L,NTBC_GAP)}:null};
 function todos(){
   const o=[],nb=ntbcNext();
@@ -338,10 +338,11 @@ function ntbc(){
   return {all:all.length,big:big.length,va:v(all.length),vb:v(big.length),bigIds:big.map(c=>c.id)};
 }
 /* 당번: 순서표를 두 명씩 끊어서 매주 돌고, 교대는 두 주 사이 사람 맞바꾸기 */
-const rng=x=>`${md(x.week)}~${md(addD(x.week,4))}`;
+const DUTY=14;
+const rng=x=>`${md(x.week)}~${md(addD(x.week,DUTY-3))}`;
 function sched(n=8,shift=0){
-  const R=S.roster,k=Math.max(0,Math.floor(days(S.dutyStart)/7))+shift,N=k+n+8;
-  const W=[];for(let i=0;i<N;i++)W.push({week:addD(S.dutyStart,i*7),pair:[R[(2*i)%R.length],R[(2*i+1)%R.length]]});
+  const R=S.roster,k=Math.max(0,Math.floor(days(S.dutyStart)/DUTY))+shift,N=k+n+8;
+  const W=[];for(let i=0;i<N;i++)W.push({week:addD(S.dutyStart,i*DUTY),pair:[R[(2*i)%R.length],R[(2*i+1)%R.length]]});
   (S.swaps||[]).forEach(s=>{if(!W[s.i]||!W[s.j])return;const a=W[s.i].pair.indexOf(s.x),b=W[s.j].pair.indexOf(s.y);if(a<0||b<0)return;W[s.i].pair[a]=s.y;W[s.j].pair[b]=s.x;W[s.i].sw=W[s.j].sw=1});
   return W.slice(k,k+n);
 }
@@ -349,7 +350,7 @@ function sched(n=8,shift=0){
 /* ===== 화면 ===== */
 function renderTop(){
   $('#meBtn').textContent=`🐾 ${ME.nick}`;
-  const wd=new Date().getDay(), [w,n,n2]=sched(8,wd===0||wd===6?1:0), mine=w.pair.includes(ME.name), N=ntbc();
+  const wd=new Date().getDay(), [w,n,n2]=sched(8,(wd===0||wd===6)&&days(S.dutyStart)%DUTY>=DUTY-2?1:0), mine=w.pair.includes(ME.name), N=ntbc();
   const thisWeek=(S.ntbcLog||[]).filter(x=>x.date>=w.week);
   $('#duty').innerHTML=`<div><div>${rng(w)} <b>${w.pair.join(' · ')}</b>${mine?' 🐾 내 차례':''}</div>
     <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}${thisWeek.length?` · 교체 ${thisWeek.map(x=>md(x.date)).join(', ')}`:''}</div>
@@ -802,7 +803,7 @@ function ntbcForm(){
 }
 function swapForm(){
   CUR=null;
-  const W=sched(8),k=Math.max(0,Math.floor(days(S.dutyStart)/7));
+  const W=sched(8),k=Math.max(0,Math.floor(days(S.dutyStart)/DUTY));
   const wk=(id,sel)=>`<select id="${id}" aria-label="주">${W.map((w,i)=>`<option value="${i}" ${i===sel?'selected':''}>${rng(w)} · ${w.pair.join(' · ')}</option>`).join('')}</select>`;
   const who=(id,i)=>`<select id="${id}" aria-label="사람"><option value="*">둘 다</option>${W[i].pair.map(p=>`<option>${p}</option>`).join('')}</select>`;
   $('#dT').textContent='교대';
@@ -885,7 +886,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261027222255';
+let NEWV=0;const VER='20261027225836';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
