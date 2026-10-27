@@ -171,7 +171,7 @@ let PRES=[];
 let S=null, EVENTS=[], HANDOVERS=[], MEMBERS=[], ME=null, AUTH=null, started=false;
 let tab='board', filt='전체';
 
-/* ===== 초기 데이터: 2026.10.15 엑셀 기준 ===== */
+/* ===== 초기 데이터: 2026.10.27 엑셀 기준 ===== */
 function seedState(){
   const st={roster:['예원','도윤','소윤','한결','유진','재혁','혜민'],dutyStart:'2026-10-19',
     swaps:[{i:0,j:1,x:'예원',y:'소윤'},{i:0,j:1,x:'도윤',y:'한결'}],ntbcLog:[],litters:[],cages:[]};
@@ -186,33 +186,36 @@ function seedState(){
   ].forEach(([line,no,dob,mom,dad,ended])=>st.litters.push({key:line+' '+no,line,no,dob,mom,dad:dad||null,ended:!!ended}));
   const H={'FRG 1':[['2026-03-24','메이팅 3/24~4/7 ♂1 × ♀1, 2 cage'],['2026-05-26','메이팅 5/26~6/8 ♂ FRG 1 × ♀ FRG 2, 2 cage']],
    'FRG 2':[['2026-03-20','메이팅 3/20~4/3 ♂1 × ♀1'],['2026-05-26','메이팅 5/26~6/9 ♂ FRG 1 × ♀ FRG 2, 2 cage'],['2026-06-15','출산 → FRG 10, 새끼 18']],
-   'FRG 3':[['2026-03-20','메이팅 3/20~4/3 ♂1 × ♀1'],['2026-05-26','메이팅 5/26~6/9 ♂1 × ♀1, 2 cage'],['2026-06-16','출산 → FRG 11, 새끼 20'],['2026-09-02','메이팅 9/2~9/16 ♂1 × ♀1, ♂1 × ♀2'],['2026-09-24','출산 → FRG 12, 새끼 전부 식살']],
+   'FRG 3':[['2026-03-20','메이팅 3/20~4/3 ♂1 × ♀1'],['2026-05-26','메이팅 5/26~6/9 ♂1 × ♀1, 2 cage'],['2026-06-16','출산 → FRG 11, 새끼 20'],['2026-09-02','메이팅 9/2~9/16 ♂1 × ♀1, ♂1 × ♀2'],['2026-09-24','출산 → FRG 12, 새끼 전부 식살'],['2026-09-24','출산 → FRG 13, 새끼 7'],['2026-09-25','출산 → FRG 14, 새끼 8']],
    'FAH 1':[['2026-03-09','메이팅 3/9~3/24'],['2026-04-06','출산 → FAH 2'],['2026-04-12','출산 → FAH 3'],['2026-04-13','메이팅 4/13~4/27'],['2026-05-07','출산 → FAH 4'],['2026-07-17','메이팅 7/17~7/31 ♂ FAH 1 × ♀ FAH 2'],['2026-08-07','출산 → FAH 6'],['2026-08-17','출산 → FAH 7']],
    'FAH 2':[['2026-05-26','메이팅 5/26~6/8 ♂1 × ♀1, 3 cage'],['2026-06-21','출산 → FAH 5, 2 cage'],['2026-06-26','출산 cage 1개 새끼 전부 식살'],['2026-07-17','메이팅 7/17~7/31 ♂ FAH 1 × ♀ FAH 2'],['2026-09-10','출산 → FAH 9']],
    'FAH 4':[['2026-08-05','출산 기록, litter 확인 필요']],
    'FAH 5':[['2026-08-11','메이팅 8/11~8/24 ♂2 × ♀3'],['2026-09-02','출산 → FAH 8, 다른 cage 1개 식살']]};
   st.litters.forEach(l=>{if(H[l.key])l.hist=H[l.key].map(([date,text])=>({date,text}))});
   const cage=(line,lit,L,m,f,o={})=>st.cages.push(Object.assign({id:`${line} ${lit}-${L}`,line,litter:`${line} ${lit}`,m,f,pups:null,mate:null,wait:null,dad:null,note:''},o));
-  cage('FRG','2','A',0,2);cage('FRG','3','A',2,0);cage('FRG','3','B',0,1,{note:'9/24 출산 후 식살'});
-  cage('FRG','3','C',0,1,{pups:{litter:'FRG 13',n:7,born:'2026-09-24'},note:'새끼 마리수 재확인'});
-  cage('FRG','3','D',0,1,{pups:{litter:'FRG 14',n:8,born:'2026-09-25'}});
+  cage('FRG','2','A',0,2);cage('FRG','3','A',2,0);cage('FRG','3','B',0,3,{note:'10/26 9/24·9/25 출산모 합사'});
   cage('FRG','5-2','A',0,1);cage('FRG','7','A',3,0);
   cage('FRG','8','A',2,0);cage('FRG','8','B',0,4);cage('FRG','8','C',0,3);
   cage('FRG','9','A',1,0);cage('FRG','9','B',0,2);
-  cage('FRG','10','A',3,0);cage('FRG','10','B',2,0);cage('FRG','10','C',0,4,{note:'10/5 암컷 1 종양'});cage('FRG','10','D',0,3);
+  cage('FRG','10','A',1,0);cage('FRG','10','D',0,1);
   cage('FRG','11','A',5,0);cage('FRG','11','B',4,0);cage('FRG','11','C',0,3);cage('FRG','11','D',0,4);
+  cage('FRG','13','A',3,0);cage('FRG','13','B',0,4,{note:'크기가 작아 암수 재확인 필요'});cage('FRG','14','A',1,0);
   cage('FAH','1','A',3,0);cage('FAH','1','B',0,2);cage('FAH','1','C',0,2);
   cage('FAH','2','A',1,0);cage('FAH','2','B',0,2,{note:'FAH 9 출산모 합사'});cage('FAH','4','A',0,1);
   cage('FAH','5','A',2,0);cage('FAH','5','B',0,2,{note:'FAH 8 출산모 합사'});
   cage('FAH','6','A',2,0);cage('FAH','6','B',0,3);cage('FAH','7','A',3,0);cage('FAH','7','B',0,3);
-  cage('FAH','8','A',4,0);cage('FAH','8','B',0,1);cage('FAH','9','A',3,0);cage('FAH','9','B',0,1);
+  cage('FAH','8','A',3,0);cage('FAH','8','B',0,1);cage('FAH','9','A',3,0);cage('FAH','9','B',0,1);
   return st;
 }
-const SEED_EVENTS=[['2026-10-13','FAH 6-B','실험','♀2 HDI 간 적출','도윤'],['2026-10-12','FAH 6-A','실사','♂ 4 → 2','도윤'],
- ['2026-10-09','FRG 10','실험','♀4 ♂4 liver · omentum transplantation','소윤'],['2026-10-06','FRG 3-C','사망','새끼 1','한결'],
- ['2026-10-06','FRG 1','안락사','전부','한결'],['2026-10-01','FAH 9','새끼 암수 분리','♂3 / ♀1','예원'],
- ['2026-09-25','FRG 3-D','출산','8 → FRG 14','재혁'],['2026-09-24','FRG 3-C','출산','7 → FRG 13','재혁']
-].map(([date,cage,type,text,by])=>({date,cage,type,text,by}));
+const SEED_EVENTS=[['2026-10-26','FAH 8-A','안락사','♂1 · 팔 상처 심해 감염 우려'],['2026-10-26','FRG 3-B','합사','9/24·9/25 출산모 → ♀3'],
+ ['2026-10-26','FRG 3-D','새끼 암수 분리','FRG 14-A ♂1'],['2026-10-26','FRG 3-C','새끼 암수 분리','FRG 13-A ♂3 / FRG 13-B ♀4 · 크기 작아 재확인 필요'],
+ ['2026-10-26','FRG 14','사망','새끼 4'],['2026-10-22','FRG 14','사망','새끼 2'],['2026-10-22','FRG 10','안락사','♀1 · tumor'],
+ ['2026-10-22','FRG 10','실험','♀5 ♂4 희생'],['2026-10-13','FAH 6-B','실험','♀2 HDI 간 적출'],['2026-10-12','FAH 6-A','실사','♂ 4 → 2'],
+ ['2026-10-09','FRG 10','실험','♀4 ♂4 liver · omentum transplantation'],['2026-10-09','FAH 6-A','실험','♂2 HDI 간 적출'],
+ ['2026-10-06','FAH 6-B','사망','♀1 HDI 직후 폐사, ♀1 HDI 실패 안락사'],['2026-10-06','FRG 3-C','사망','새끼 1'],['2026-10-06','FRG 1','안락사','전부'],
+ ['2026-10-02','FAH 6-A','안락사','♂1 HDI 실패'],['2026-10-01','FAH 9','새끼 암수 분리','♂3 / ♀1'],['2026-10-01','FAH 2-B','합사','출산 실패 ♀1 + FAH 9 출산모'],
+ ['2026-09-28','FAH 5-B','합사','FAH 8 출산모 + Mating 실패 ♀'],['2026-09-25','FRG 3-D','출산','8 → FRG 14'],['2026-09-24','FRG 3-C','출산','7 → FRG 13']
+].map(([date,cage,type,text,by=''])=>({date,cage,type,text,by}));
 
 /* ===== 저장소 ===== */
 function fbStore(){
@@ -241,14 +244,6 @@ function fbStore(){
       const b=db.batch();b.set(db.doc('colony/main'),clone(st));
       evs.forEach((e,i)=>b.set(db.collection('events').doc(),{...e,ts:firebase.firestore.Timestamp.fromMillis(d(e.date).getTime()+i)}));
       await b.commit();
-    },
-    async reset(st,evs){
-      for(const col of ['events','handovers']){
-        const q=await db.collection(col).get();let b=db.batch(),n=0;
-        for(const x of q.docs){b.delete(x.ref);if(++n===400){await b.commit();b=db.batch();n=0}}
-        if(n)await b.commit();
-      }
-      await this.seed(st,evs);
     },
     presence(){
       const ref=db.doc('presence/'+AUTH.uid),beat=()=>{if(document.visibilityState==='visible')ref.set({nick:ME.nick,ts:FV.serverTimestamp()}).catch(()=>{})};
@@ -281,7 +276,6 @@ function demoStore(){
     presence(){PRES=[{uid:'demo',nick:ME.nick,t:Date.now()},{uid:'x',nick:'재혁',t:Date.now()}];drawPres()},
     _rep:{},async getReport(){return this._rep},async saveReport(p){Object.assign(this._rep,p)},
     async backup(){},async listBackups(){return [{id:ymd(new Date()),by:'데모',main:clone(S),events:[],handovers:[]}]},
-    async reset(st,evs){S=st;EVENTS=evs;HANDOVERS=[];render()},
     async addHandover(h){HANDOVERS.unshift({id:String(Date.now()),...h});render()},
     async updateHandover(id,p){Object.assign(HANDOVERS.find(x=>x.id===id),p);render()},
   };
@@ -436,7 +430,7 @@ function renderMembers(){
 function renderEmpty(){
   $('#duty').innerHTML='';$('#stat').innerHTML='';$('#todo').innerHTML='';$('#mat').innerHTML='';
   $('#meBtn').textContent=`🐾 ${ME.nick}`;
-  $('#view').innerHTML=isAdmin()?`<div class="frm"><div>아직 데이터 없음</div><button class="btn pri" id="seed">2026.10.15 엑셀 기준 데이터로 시작</button></div>`:'<p>아직 데이터 없음</p>';
+  $('#view').innerHTML=isAdmin()?`<div class="frm"><div>아직 데이터 없음</div><button class="btn pri" id="seed">2026.10.27 엑셀 기준 데이터로 시작</button></div>`:'<p>아직 데이터 없음</p>';
   if(isAdmin())$('#seed').onclick=async()=>{await Store.seed(seedState(),SEED_EVENTS);toast('시작')};
 }
 function refreshDlg(){
@@ -825,16 +819,40 @@ function swapForm(){
     if(await commit(st=>{st.swaps=[...(st.swaps||[]),...list.map(([x,y])=>({i:k+a,j:k+b,x,y}))]},[{cage:'당번',type:'교대',text:`${md(W[a].week)} ${list.map(p=>p[0]).join('·')} ↔ ${md(W[b].week)} ${list.map(p=>p[1]).join('·')}`}]))swapForm()};
   if(!$('#dlg').open)$('#dlg').showModal();
 }
-function exportXlsx(){
-  if(typeof XLSX==='undefined'){toast('엑셀 모듈 로딩 실패');return}
-  const wb=XLSX.utils.book_new();
-  const cages=S.cages.filter(c=>total(c)>0||c.mate||c.wait).map(c=>({Cage:c.id,Line:c.line,Litter:c.litter,DOB:lit(c.litter).dob,'♂':c.m,'♀':c.f,'새끼':c.pups?c.pups.n:0,'상태':status(c)?.t||'','메이팅':pairS(c),'메모':c.note||''}));
-  const lits=S.litters.map(l=>{const cs=S.cages.filter(c=>c.litter===l.key);return{Litter:l.key,DOB:l.dob,'엄마':l.mom,'아빠':l.dad||'','♂':cs.reduce((a,c)=>a+c.m,0),'♀':cs.reduce((a,c)=>a+c.f,0)}});
-  const ev=EVENTS.map(e=>({Date:e.date,Cage:e.cage,'구분':e.type,'내용':e.text,'입력':e.by}));
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(cages),'Cages');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lits),'Litters');
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(ev),'Events');
-  XLSX.writeFile(wb,`STAR Mouse ${todayS()}.xlsx`);
+async function exportXlsx(){
+  try{if(typeof ExcelJS==='undefined')await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){toast('엑셀 모듈 로딩 실패');return}
+  const wb=new ExcelJS.Workbook(),F=c=>({type:'pattern',pattern:'solid',fgColor:{argb:'FF'+c}});
+  const LC={FRG:'FFF1C2',FAH:'FDE0EA'},lc=l=>LC[l]||'E6F0E0',BL='1F3A93',PK='B0245E';
+  const sheet=(name,cols)=>{const ws=wb.addWorksheet(name,{views:[{state:'frozen',ySplit:1}]});ws.columns=cols.map(([h,w])=>({header:h,width:w}));
+    const r=ws.getRow(1);r.font={bold:true};r.fill=F('EDE7DF');r.alignment={vertical:'middle'};r.height=20;return ws};
+  const sx=(row,mi,fi)=>{if(mi)row.getCell(mi).font={bold:true,color:{argb:'FF'+BL}};if(fi)row.getCell(fi).font={bold:true,color:{argb:'FF'+PK}}};
+  const age=s=>s?days(s):'';
+  // 현황
+  const sum=sheet('현황',[['종류',12],['마리',8],['♂ 수컷',9],['♀ 암컷',9],['새끼',8],['cage',8],['4마리↑',9]]);
+  LINES().forEach(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0),a=f=>cs.reduce((x,c)=>x+f(c),0);
+    const r=sum.addRow([L,a(total),a(c=>c.m),a(c=>c.f),a(c=>c.pups?c.pups.n:0),cs.length,cs.filter(c=>total(c)>=4||c.pups).length]);r.getCell(1).fill=F(lc(L));sx(r,3,4)});
+  const G=S.general||[];if(G.length){const r=sum.addRow(['일반',G.reduce((a,g)=>a+(+g.m||0)+(+g.f||0),0),G.reduce((a,g)=>a+(+g.m||0),0),G.reduce((a,g)=>a+(+g.f||0),0),0,G.length,'']);sx(r,3,4)}
+  sum.addRow([]);const N=ntbc(),nb=ntbcNext();
+  sum.addRow(['기준일',todayS()]);sum.addRow(['NTBC',`전체 교체 ${N.va} vial · 4마리↑ ${N.vb} vial (1.8 ml aliquot, 여유 1 vial)`]);
+  if(nb)sum.addRow(['NTBC 교체',`마지막 ${nb.last} → 다음 ${nb.next}`]);
+  // 종류별
+  LINES().forEach(L=>{const ws=sheet(L,[['Cage',13],['이름',16],['DOB',11],['일령',7],['♂ 수컷',8],['♀ 암컷',8],['새끼',7],['상태',22],['Mating',34],['메모',40]]);
+    S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
+      const h=ws.addRow([`${l.key}  ·  DOB ${l.dob}  ·  ${days(l.dob)}일  ·  엄마 ${l.mom||'?'}${l.dad?'  ·  아빠 '+l.dad:''}`]);ws.mergeCells(h.number,1,h.number,10);h.font={bold:true};h.fill=F(lc(L));
+      cs.forEach(c=>{const st=status(c),r=ws.addRow([c.id,c.name||'',l.dob,days(l.dob),c.m,c.f,c.pups?c.pups.n:'',st?st.t:'',c.mate||c.wait?pairS(c):'',[c.note,...(c.notes||[]).map(n=>n.text)].filter(Boolean).join(' / ')]);
+        sx(r,5,6);r.getCell(10).alignment={wrapText:true,vertical:'top'};if(c.mate||c.wait||c.pups)r.getCell(1).fill=F('DCEBFA')})});
+    ws.addRow([]);const cs=S.cages.filter(c=>c.line===L&&total(c)>0),t=ws.addRow(['합계','','','',cs.reduce((a,c)=>a+c.m,0),cs.reduce((a,c)=>a+c.f,0),cs.reduce((a,c)=>a+(c.pups?c.pups.n:0),0),`${cs.length} cage`]);t.font={bold:true};sx(t,5,6)});
+  // 일반
+  if(G.length){const ws=sheet('일반',GF.map(([k,l])=>[l==='♂'?'♂ 수컷':l==='♀'?'♀ 암컷':l,k==='memo'?44:k==='no'?16:11]));
+    [...G].sort((a,b)=>(a.owner||'').localeCompare(b.owner||'','ko')).forEach(g=>{const r=ws.addRow(GF.map(([k])=>g[k]??''));sx(r,7,8);r.getCell(10).alignment={wrapText:true,vertical:'top'}})}
+  // 계보
+  const lt=sheet('계보',[['Litter',11],['DOB',11],['엄마',10],['아빠',10],['♂ 수컷',8],['♀ 암컷',8],['상태',10]]);
+  LINES().forEach(L=>S.litters.filter(l=>l.line===L).forEach(l=>{const cs=S.cages.filter(c=>c.litter===l.key);const r=lt.addRow([l.key,l.dob,l.mom||'',l.dad||'',cs.reduce((a,c)=>a+c.m,0),cs.reduce((a,c)=>a+c.f,0),l.ended?'종료':'']);r.getCell(1).fill=F(lc(L));sx(r,5,6)}));
+  // 기록
+  const ev=sheet('기록',[['날짜',11],['Cage',13],['구분',13],['내용',60],['입력',8]]);
+  EVENTS.forEach(e=>{const r=ev.addRow([e.date,e.cage,e.type,e.text,e.by]);r.getCell(4).alignment={wrapText:true,vertical:'top'}});
+  const buf=await wb.xlsx.writeBuffer(),u=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');
+  a.href=u;a.download=`STAR Mouse ${todayS()}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
 function profileForm(first){
   CUR=null;
@@ -867,7 +885,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261027215214';
+let NEWV=0;const VER='20261027222255';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
