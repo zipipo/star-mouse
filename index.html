@@ -79,7 +79,7 @@ nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
 .ma{color:var(--male);font-weight:700}.fe{color:var(--female);font-weight:700}
 
 .pups{display:flex;flex-wrap:wrap;gap:3px;align-items:center;font-size:12.5px}
-.pups i{width:8px;height:8px;border-radius:50%;background:var(--pup);display:inline-block}
+.pups i{width:18px;height:18px;background:url(baby.png) center/contain no-repeat;display:inline-block}
 .tree ul{list-style:none;margin:0;padding-left:22px;border-left:1px solid var(--line)}
 .tree>ul{border-left:0;padding-left:0}
 .tree li{position:relative;padding:3px 0}
@@ -886,7 +886,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261027225836';
+let NEWV=0;const VER='20261027232132';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
