@@ -367,8 +367,7 @@ const lastEv=(cid,types)=>EVENTS.filter(e=>e.cage===cid&&types.includes(e.type))
 function mateWarn(fc,f,mc,n,date=todayS()){
   const w=[],ageW=(x,sx)=>{const a=ageD(x);if(a==null)return;const wk=Math.floor(a/7);
     if(a<MATE_AGE.min)w.push(`${sx} ${x.id} ${wk}주령 · 6주령 이상부터 Mating`);
-    else if(a>MATE_AGE.max)w.push(`${sx} ${x.id} ${wk}주령 · 1년 넘어 Mating 어려움`);
-    else if(a>MATE_AGE.best)w.push(`${sx} ${x.id} ${wk}주령 · 20주령 넘으면 Mating 잘 안 될 수 있음`)};
+    else if(a>MATE_AGE.max)w.push(`${sx} ${x.id} ${wk}주령 · 1년 넘어 Mating 어려움`)};
   if(fc)ageW(fc,'♀');if(mc)ageW(mc,'♂');
   if(n>0&&f>2*n)w.push(`♂:♀ = ${n}:${f} · 1:1~1:2 권장`);
   if(fc){const lw=lastEv(fc.id,['새끼 암수 분리','출산']);if(lw&&days(lw)-days(date)<REST)w.push(`♀ ${fc.id} ${fd(lw)} 출산·분리 → 2~3주 회복 후 Mating 권장`);
@@ -1031,7 +1030,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261101215325';
+let NEWV=0;const VER='20261101220028';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
