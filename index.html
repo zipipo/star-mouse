@@ -119,6 +119,9 @@ input[type=number]{width:62px}
 details>summary.more .c,details[open]>summary.more .o{display:none}details[open]>summary.more .c{display:inline}summary.more{list-style:none}summary.more::-webkit-details-marker{display:none}
 .wl-d{font-weight:700;margin:12px 0 4px;font-size:14px}.wl{padding:6px 10px;border-radius:8px;background:var(--soft);margin:4px 0;font-size:13.5px}.wl-t{font-size:12px;padding:1px 7px;border-radius:9px;background:#fff;color:#7a6a5a;margin-left:2px}.wl-x{color:#6b6b6b;font-size:13px;margin-top:2px;line-height:1.4}
 #upd{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:50;border:0;border-radius:20px;padding:8px 16px;background:#ffd6b8;color:#7a3e10;font-weight:700;box-shadow:0 2px 8px #0002}
+.hotop{margin-top:8px;border:1.5px solid var(--peach-2);border-radius:14px;padding:10px 14px;font-size:13.5px}
+.hotop .h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:3px}
+.hotop .x{white-space:pre-wrap;line-height:1.5}
 .warn{background:var(--alert);color:var(--alert-ink);border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.5}
 .tip{background:var(--blue);border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.5}
 .evx{border:0;background:none;color:var(--sub);font-size:12px;padding:0 4px;text-decoration:underline;cursor:pointer}
@@ -135,6 +138,7 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
   <div class="row" style="gap:10px"><div id="pres" class="pres"></div><button class="btn" id="meBtn"></button></div>
 </header>
 <div class="duty" id="duty"></div>
+<div class="hotop" id="hoTop" hidden></div>
 <div class="stat" id="stat"></div>
 <div class="todo" id="todo"></div>
 <div class="todo mat" id="mat"></div>
@@ -399,6 +403,13 @@ function renderTop(){
     <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
+  /* 지난 당번이 남긴 가장 최근 인수인계: 확인해도 다음 인수인계 올 때까지 상단에 남음 */
+  const hx=HANDOVERS.find(x=>x.week<w.week)||HANDOVERS[0],hb=$('#hoTop');hb.hidden=!hx;
+  if(hx){const t=hx.ts?.toDate?hx.ts.toDate():null;
+    hb.innerHTML=`<div class="h"><b>📋 인수인계</b><span class="dim">${esc(hx.from)} → ${esc(hx.to)}${t?` · ${fd(ymd(t))} ${t.toTimeString().slice(0,5)}`:''} · ${hx.read?`확인 ${esc(hx.readBy||'')}`:'<b style="color:var(--alert-ink)">미확인</b>'}</span>
+      ${!hx.read&&hx.to.includes(ME.name)?`<button class="btn pri" id="hoRead">확인</button>`:''}<button class="btn" id="hoAll" style="margin-left:auto">전체 보기</button></div><div class="x">${esc(hx.text)}</div>`;
+    if($('#hoRead'))$('#hoRead').onclick=()=>Store.updateHandover(hx.id,{read:true,readBy:ME.nick}).catch(()=>toast('저장 실패'));
+    $('#hoAll').onclick=()=>go('handover')}
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
   const st=LINES().map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
   const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0),gs=f=>G.reduce((x,g)=>x+(+g[f]||0),0);
@@ -491,7 +502,7 @@ function renderMembers(){
     try{await Store.saveMember(s.dataset.nm,{name:s.value});toast(`${m?.nick||''} 당번표 → ${s.value}`)}catch(e){toast('저장 실패');render()}});
 }
 function renderEmpty(){
-  $('#duty').innerHTML='';$('#stat').innerHTML='';$('#todo').innerHTML='';$('#mat').innerHTML='';
+  $('#duty').innerHTML='';$('#hoTop').hidden=true;$('#stat').innerHTML='';$('#todo').innerHTML='';$('#mat').innerHTML='';
   $('#meBtn').textContent=`🐾 ${ME.nick}`;
   $('#view').innerHTML=isAdmin()?`<div class="frm"><div>아직 데이터 없음</div><button class="btn pri" id="seed">2026.10.27 엑셀 기준 데이터로 시작</button></div>`:'<p>아직 데이터 없음</p>';
   if(isAdmin())$('#seed').onclick=async()=>{await Store.seed(seedState(),SEED_EVENTS);toast('시작')};
@@ -1033,7 +1044,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261101221359';
+let NEWV=0;const VER='20261101221537';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
