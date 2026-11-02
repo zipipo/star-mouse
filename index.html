@@ -644,7 +644,7 @@ function actForm(c,a){
       $$('.mn').forEach(e=>e.oninput=()=>{rows[e.dataset.i].n=+e.value||0;chk()});
       $$('.ms').forEach(e=>e.onchange=()=>{rows[e.dataset.i].msrc=e.value;chk()});
       $$('.mfs').forEach(e=>e.onchange=()=>{rows[e.dataset.i].fsrc=e.value;draw()});chk()};
-    F.innerHTML=`<div class="frm"><div class="dim">${fromMale?'이 cage 수컷을 데려갈 암컷 cage 고르기':'이 cage 암컷에 넣을 수컷 cage 고르기'}</div><div id="mrows" style="display:flex;flex-direction:column;gap:6px"></div><div class="row"><button class="btn" id="mAdd">+ 메이팅 cage</button><span id="msum" class="dim"></span></div>${dateIn(todayS(),'합사한 날')}<div id="mwarn"></div><div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
+    F.innerHTML=`<div class="frm"><div class="dim">${fromMale?'이 cage 수컷을 데려갈 암컷 cage 고르기':'이 cage 암컷에 넣을 수컷 cage 고르기'} · 숫자 칸에 마리수 (예: ♂2 × ♀2)</div><div id="mrows" style="display:flex;flex-direction:column;gap:6px"></div><div class="row"><button class="btn" id="mAdd">+ 메이팅 cage</button><span id="msum" class="dim"></span></div>${dateIn(todayS(),'합사한 날')}<div id="mwarn"></div><div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
     draw();$('#fD').onchange=chk;
     $('#mAdd').onclick=()=>{if(!fromMale&&rows.reduce((a,r)=>a+r.f,0)>=c.f)return;if(fromMale&&rows.reduce((a,r)=>a+r.n,0)>=c.m)return;const l=rows[rows.length-1];rows.push({fsrc:l.fsrc,f:1,msrc:l.msrc,n:1});draw()};
     $('#fOk').onclick=async()=>{
@@ -1134,7 +1134,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261102102807';
+let NEWV=0;const VER='20261103014741';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
