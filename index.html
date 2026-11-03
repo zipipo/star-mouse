@@ -559,10 +559,18 @@ function render(){
 }
 
 /* ===== cage 상세 + 입력 ===== */
-const can=(c,k)=>({ind:c.m+c.f>0,mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
-const ACTG=[['번식',['mate','mateEnd','birth','noBirth','wean'],'g1'],['마리수',['move','death','exp','census'],'g2'],['기록',['memo','ind','rename','edit'],'g3']];
-const DATED=['death','exp','mateEnd','noBirth','birth','move','census'];
-const ACTS=[['edit','날짜 · 정보 수정'],['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사'],['memo','메모'],['ind','개체 표시'],['rename','이름']];
+const can=(c,k)=>({ind:c.m+c.f>0,sex:c.m+c.f>0,mate:c.m+c.f>0&&!c.mate&&!c.wait&&!c.pups,mateEnd:!!c.mate,birth:!!(c.mate||c.wait)&&!c.pups,noBirth:!!c.wait,wean:!!c.pups,move:c.m+c.f>0,exp:c.m+c.f>0,death:total(c)>0})[k]??true;
+const ACTG=[['번식',['mate','mateEnd','birth','noBirth','wean'],'g1'],['마리수',['move','death','exp','census','sex'],'g2'],['기록',['memo','ind','rename','edit'],'g3']];
+const DATED=['death','exp','mateEnd','noBirth','birth','move','census','sex'];
+/* 성별 잘못 적은 개체 고치기: 고른 개체를 반대 성별로 옮기고 표시(귀 등)도 같이 옮김 */
+const sexChips=c=>['m','f'].map(sx=>inds(c,sx).map((o,k)=>`<label class="chip" style="display:inline-flex;gap:4px;align-items:center"><input type="checkbox" class="spk" data-s="${sx}" data-k="${k}"><b class="${sx==='m'?'ma':'fe'}">${nmI(sx,o.no)}</b>${labI(o)?' '+esc(labI(o)):''}</label>`).join('')).join('');
+const sexPicks=()=>{const p={m:[],f:[]};$$('.spk').forEach(e=>{if(e.checked)p[e.dataset.s].push(+e.dataset.k)});return p};
+function flipSex(c,pk){
+  const A={m:inds(c,'m'),f:inds(c,'f')},op={m:'f',f:'m'},o={},txt=[];
+  ['m','f'].forEach(sx=>{const keep=A[sx].filter((_,k)=>!pk[sx].includes(k)),inn=A[op[sx]].filter((_,k)=>pk[op[sx]].includes(k));let n=Math.max(0,...keep.map(x=>x.no));
+    o[sx]=[...keep.map(x=>({no:x.no,memo:labI(x)})),...inn.map(x=>{const y={no:++n,memo:labI(x)};txt.push(`${nmI(op[sx],x.no)}${y.memo?' '+y.memo:''} → ${nmI(sx,y.no)}`);return y})]});
+  return {indM:o.m,indF:o.f,m:o.m.length,f:o.f.length,text:txt.join(', ')}}
+const ACTS=[['edit','날짜 · 정보 수정'],['death','사망'],['exp','실험'],['mate','메이팅'],['mateEnd','수컷 빼기'],['birth','출산'],['noBirth','출산 없음'],['wean','새끼 암수 분리'],['move','이동 · 새 cage'],['census','실사'],['sex','성별 수정'],['memo','메모'],['ind','개체 표시'],['rename','이름']];
 const MATE_T=['메이팅','출산','수컷 빼기','출산 없음'];
 const slim=t=>String(t||'').replace(/ \(DOB [^)]+\)/g,'').replace(/from /g,'');
 const listH=(items,line)=>{if(!items.length)return '<ul class="tl"><li class="dim">없음</li></ul>';
@@ -763,6 +771,12 @@ function actForm(c,a){
     h=`<input id="fName" value="${esc(c.name||'')}" placeholder="예: YJ cage / Hepa1-6 1×10⁶ cells 주입" maxlength="30" style="flex:1">`;
     ok=async()=>{const nm=$('#fName').value.trim();after(await commit(st=>{C(st,id).name=nm},[{cage:id,type:'이름',text:nm||'이름 지움'}]))};
   }
+  if(a==='sex'){
+    h=`<div class="dim">성별을 잘못 적은 개체를 골라주세요 · 반대 성별로 바뀜</div><div class="row" style="gap:6px">${sexChips(c)}</div><input id="fMemo" placeholder="메모 (선택)">`;
+    ok=async()=>{const pk=sexPicks();if(!pk.m.length&&!pk.f.length){toast('개체를 골라주세요');return}const D=pickD();if(!D)return;
+      const r=flipSex(c,pk),memo=$('#fMemo').value.trim();
+      after(await commit(st=>{const x=C(st,id),y=flipSex(x,pk);Object.assign(x,{m:y.m,f:y.f,indM:y.indM,indF:y.indF});fixMate(x)},[{cage:id,date:D,type:'성별 수정',text:[r.text,`♂${c.m}♀${c.f} → ♂${r.m}♀${r.f}`,memo].filter(Boolean).join(' · ')}]))};
+  }
   if(a==='census'){
     h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div><input id="fMemo" placeholder="메모">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;const D=pickD();if(!D)return;
@@ -809,7 +823,7 @@ function openGen(i,act){
   const B=(k,t)=>`<button data-ga="${k}" class="${act===k?'on':''}">${t}</button>`,alive=c.m+c.f>0;
   $('#dB').innerHTML=`<div class="dim">${[g.strain,g.dob&&`DOB ${fd(g.dob)} · ${days(g.dob)}일`,g.owner,g.iacuc&&'IACUC '+g.iacuc,g.inDate&&'반입 '+fd(g.inDate),g.parents&&'Parents '+g.parents].filter(Boolean).map(esc).join(' · ')}</div>
    <div style="margin:8px 0">${mice(c)}</div>
-   ${canEdit()?`<div class="qa g2"><span class="qg">마리수</span>${alive?B('exp','실험')+B('death','사망'):''}${B('info','라벨 정보 · 마리수 수정')}</div><div class="qa g3"><span class="qg">기록</span>${B('memo','메모')}${alive?B('ind','개체 표시'):''}</div><div id="form"></div>`:''}
+   ${canEdit()?`<div class="qa g2"><span class="qg">마리수</span>${alive?B('exp','실험')+B('death','사망'):''}${alive?B('sex','성별 수정'):''}${B('info','라벨 정보 · 마리수 수정')}</div><div class="qa g3"><span class="qg">기록</span>${B('memo','메모')}${alive?B('ind','개체 표시'):''}</div><div id="form"></div>`:''}
    ${alive?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 남은 개체</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${['m','f'].flatMap(sx=>inds(c,sx).map(o=>`<b class="${sx==='m'?'ma':'fe'}">${nmI(sx,o.no)}</b> ${esc(labI(o))||'<span class="dim">표시 없음</span>'}`)).join('<br>')}</div>`:''}
    ${gone.length?`<h4 style="margin:10px 0 4px;font-size:13.5px">✂ 나간 개체</h4>${listH(gone,x=>`<li><b style="font-weight:600">${fd(x.date)} <span class="${x.sx==='m'?'ma':'fe'}">${nmI(x.sx,x.no)}</span>${x.mark?' '+esc(x.mark):''} ${esc(x.type)}</b>${x.text?' · '+esc(x.text):''} <span class="dim">${esc(x.by||'')}</span>${canEdit()?` <button class="evx" data-gback="${x.k}">되돌리기</button>`:''}</li>`)}`:''}
    ${ns.length?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="display:flex;flex-direction:column;gap:6px">${ns.map(n=>`<div style="background:var(--soft);border-radius:8px;padding:6px 10px;font-size:13.5px"><div class="dim">${n.t?fd(n.t.slice(0,10))+' '+n.t.slice(11):'이전 메모'}${n.by?' · '+esc(n.by):''}${n.ed?` · 수정 ${fd(n.ed.slice(0,10))} ${n.ed.slice(11)}`:''}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div>`).join('')}</div>`:''}
@@ -829,6 +843,12 @@ function genAct(i,a){
   if(a==='exp'||a==='death'){
     h=`<div class="row" style="gap:6px">${gChips(g,i)}</div><input id="fMemo" placeholder="${a==='exp'?'실험 내용 (예: 간 적출)':'사유'}">`;
     ok=async()=>{const D=pickD();if(!D)return;after(await gOut(gPicks(),a==='exp'?'실험':'사망',$('#fMemo').value.trim(),D))};
+  }
+  if(a==='sex'){
+    h=`<div class="dim">성별을 잘못 적은 개체를 골라주세요 · 반대 성별로 바뀜</div><div class="row" style="gap:6px">${sexChips(gC(g))}</div><input id="fMemo" placeholder="메모 (선택)">`;
+    ok=async()=>{const pk=sexPicks();if(!pk.m.length&&!pk.f.length){toast('개체를 골라주세요');return}const D=pickD();if(!D)return;
+      const c=gC(g),r=flipSex(c,pk),memo=$('#fMemo').value.trim();
+      after(await commit(st=>{const x=G(st),y=flipSex(gC(x),pk);Object.assign(x,{m:y.m,f:y.f,indM:y.indM,indF:y.indF})},[{cage:tag,date:D,type:'성별 수정',text:[r.text,`♂${c.m}♀${c.f} → ♂${r.m}♀${r.f}`,memo].filter(Boolean).join(' · ')}]))};
   }
   if(a==='ind'){
     const c=gC(g),rowI=(sx,k,o)=>`<div class="row" style="gap:6px"><b class="${sx==='m'?'ma':'fe'}" style="min-width:34px">${nmI(sx,o.no)}</b><input class="imemo" data-s="${sx}" data-k="${k}" value="${esc(labI(o))}" placeholder="예: 왼쪽 귀 cutting, 꼬리 점" style="flex:1;min-width:80px"></div>`;
@@ -852,7 +872,7 @@ function genAct(i,a){
       after(await commit(st=>{const x=G(st);x.notes=[...(x.notes||[]),n]},[{cage:tag,type:'메모',text:t}]))};
   }
   if(a==='info'){generalForm(i);return}
-  F.innerHTML=`<div class="frm">${h}${a==='exp'||a==='death'?dateIn():''}<div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
+  F.innerHTML=`<div class="frm">${h}${['exp','death','sex'].includes(a)?dateIn():''}<div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
   $('#fOk').onclick=ok;
 }
 /* 한 연구자의 cage 여러 개에서 한번에 실험·사망 (예: cage마다 1마리씩 적출) */
@@ -1116,7 +1136,7 @@ const dotD=s=>s?s.replace(/-/g,'.'):'';
 const WK='일월화수목금토';
 /* cage id → litter key (FRG 5-2-A → FRG 5-2) */
 const litOf=id=>{const c=S.cages.find(x=>x.id===id);if(c)return c.litter;let b='';S.litters.forEach(l=>{if((id===l.key||String(id).startsWith(l.key+'-'))&&l.key.length>b.length)b=l.key});return b};
-const LEG_INFO=['사망','안락사','실험','실사','반입'], LEG_PLAN=['메이팅','수컷 빼기','출산','출산 없음','새끼 암수 분리','합사','이동','새 cage'];
+const LEG_INFO=['사망','안락사','실험','실사','성별 수정','반입'], LEG_PLAN=['메이팅','수컷 빼기','출산','출산 없음','새끼 암수 분리','합사','이동','새 cage'];
 const legTxt=t=>String(t||'').replace(/\s*\(DOB [^)]*\)/g,'').replace(/ from /g,' ').trim();
 function legRows(L){
   return S.litters.filter(l=>l.line===L).sort((a,b)=>(parseFloat(a.no)||0)-(parseFloat(b.no)||0)||String(a.no).localeCompare(String(b.no))).map(l=>{
@@ -1221,7 +1241,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261103082113';
+let NEWV=0;const VER='20261103083625';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
