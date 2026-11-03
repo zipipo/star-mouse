@@ -455,8 +455,8 @@ function renderTree(){
   $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));$$('[data-mc]').forEach(b=>b.onclick=()=>openCage(b.dataset.mc));
 }
 function renderLog(){
-  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button><button class="btn pri" id="rpt">월간 현황조사표</button>${isAdmin()?'<button class="btn" id="bkB">백업</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`).join('')}</table></div>`;
-  $('#xls').onclick=exportXlsx;$('#rpt').onclick=reportForm;
+  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button><button class="btn pri" id="xlsL">원래 양식 엑셀</button><button class="btn pri" id="rpt">월간 현황조사표</button>${isAdmin()?'<button class="btn" id="bkB">백업</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`).join('')}</table></div>`;
+  $('#xls').onclick=exportXlsx;$('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;
   $$('[data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev));
   if(isAdmin())$('#bkB').onclick=async()=>{const P=$('#bkP');P.textContent='불러오는 중…';let L;try{L=await Store.listBackups()}catch(e){P.textContent='백업 목록 못 불러옴';return}
     P.innerHTML=`<div class="ox"><table class="log"><tr><th>날짜</th><th>저장한 사람</th><th></th></tr>${L.map((b,i)=>`<tr><td>${esc(b.id)}</td><td>${esc(b.by||'')}</td><td><button class="btn" data-bd="${i}">내려받기</button> <button class="btn" data-br="${i}">이 날로 되돌리기</button></td></tr>`).join('')||'<tr><td colspan=3>아직 없음</td></tr>'}</table></div>`;
@@ -1103,6 +1103,93 @@ async function exportXlsx(){
   const buf=await wb.xlsx.writeBuffer(),u=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');
   a.href=u;a.download=`STAR Mouse ${todayS()}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
+/* ===== 원래 양식 엑셀 (Mouse_data_information_번호_날짜_이니셜) ===== */
+const LEG_METHOD=['[FRG and FAH mice maintain protocol] 정독 바랍니다. ','1. NTBC 교체는 2주마다 2명씩 돌아가면서 진행중에 있습니다. ','2. NTBC 교체 담당 순서는 예원-도윤-소윤-한결-유진-재혁-혜민입니다. ','3. 매주 월/목 또는 화/금요일마다 일주일에 한번 NTBC 음수 교체 진행합니다. ','4. 매주 확인 후 mice 마리수가 많거나 출산케이지의 경우 추가로 음수를 교체 (일주일에 2회) 합니다. ','5. 실험동물을 확인하여 라벨지 색상을 교체합니다. (FAH: 핑크색, FRG: 노란색, mating/출산/실험과 같은 특이사항: 파란색)','6. 라벨지 내 IACUC number, 담당자, DOB, Cage number 등 자세히 기록합니다. ','7. 실험에 사용한 마우스는 DOB에 따라 information 내 작성 및 mice 마리수에서 제외합니다. (실험자가 따로 Cage number 기입)','8. 암수분리는 DOB 5주령이 되면 진행하나, mice 크기가 작은경우 분리하지 않고, 기간을 두고 분리합니다.','9. 암수분리할 때 마다 동물실 내 LMO 관리대장 (김요한 교수님) 작성 업데이트 합니다.','10. 교체 차례가 끝나는 날에 최종 mouse information update해서 관련 issue나 참고해야할 부분 전달합니다. (mating, 출산, NTBC aliquot, NTBC 주문일정, 암수분리일정 등)','11. 매 월 말 Mice 종류별 총 마리수, Cage 수 확인하여 랩실에 전달합니다. (실험동물센터 보고)','','**NTBC 보관 위치: 실험실 6 냉동실 (김요한 교수님) ','**실험동물실 사육실: 사육실 11','**약품물병 폐기: 약품물병 표시 후 pass룸에 보관. '];
+const LEG_COUNTS=[{date:'2026.08.24',v:{FRG:[56,20],FAH:[33,12],'일반':[11,4]},ntbc:'매주 월/목 (2차)',left:''},
+ {date:'2026.10.01',v:{FRG:['55+a',22],FAH:[42,18],'일반':[55,17]},ntbc:'9/28 (월), 10/1(목, 4마리 이상 cage만 교체)',left:''},
+ {date:'2026.10.15',v:{FRG:[66,22],FAH:[35,18],'일반':[40,15]},ntbc:'월/목',left:''},
+ {date:'2026.10.29',v:{FRG:[43,18],FAH:[34,16],'일반':[69,18]},ntbc:'월/목(4마리 이상 cage만 교체)',left:'8.1 vials'}];
+/* 한글 이름 → 이니셜 (소윤 → SY) */
+const initials=n=>[...String(n||'')].map(ch=>{const k=ch.charCodeAt(0)-0xAC00;if(k<0||k>11171)return /[A-Za-z]/.test(ch)?ch.toUpperCase():'';
+  const c='G,K,N,D,T,R,M,B,P,S,S,,J,J,C,K,T,P,H'.split(',')[Math.floor(k/588)];return c||'AAYYEEYYOWWOYUWWWYEUI'[Math.floor(k%588/28)]}).join('');
+const dotD=s=>s?s.replace(/-/g,'.'):'';
+const WK='일월화수목금토';
+/* cage id → litter key (FRG 5-2-A → FRG 5-2) */
+const litOf=id=>{const c=S.cages.find(x=>x.id===id);if(c)return c.litter;let b='';S.litters.forEach(l=>{if((id===l.key||String(id).startsWith(l.key+'-'))&&l.key.length>b.length)b=l.key});return b};
+const LEG_INFO=['사망','안락사','실험','실사','반입'], LEG_PLAN=['메이팅','수컷 빼기','출산','출산 없음','새끼 암수 분리','합사','이동','새 cage'];
+const legTxt=t=>String(t||'').replace(/\s*\(DOB [^)]*\)/g,'').replace(/ from /g,' ').trim();
+function legRows(L){
+  return S.litters.filter(l=>l.line===L).sort((a,b)=>(parseFloat(a.no)||0)-(parseFloat(b.no)||0)||String(a.no).localeCompare(String(b.no))).map(l=>{
+    const cs=S.cages.filter(c=>c.litter===l.key), host=S.cages.filter(c=>c.pups&&c.pups.litter===l.key);
+    const m=cs.reduce((a,c)=>a+c.m,0), f=cs.reduce((a,c)=>a+c.f,0), p=host.reduce((a,c)=>a+c.pups.n,0);
+    const evs=EVENTS.filter(e=>e.date&&litOf(e.cage)===l.key).slice().reverse();
+    const suf=e=>{const s=String(e.cage).slice(l.key.length+1);return s&&cs.length>1?` (${s})`:''};
+    const line=e=>`${dotD(e.date)} ${e.type} ${legTxt(e.text)}`.trim()+suf(e);
+    const born=EVENTS.find(e=>e.type==='출산'&&new RegExp('→ '+reEsc(l.key)+'$').test(e.text||''));
+    const info=[...(born?[`총 새끼수 ${parseInt(born.text)||'?'}마리`]:[]),...(p?[`새끼 ${p}마리 암수 분리 전`]:[]),
+      ...evs.filter(e=>LEG_INFO.includes(e.type)).map(line),
+      ...cs.flatMap(c=>notesOf(c).map(n=>`${n.t?dotD(n.t.slice(0,10))+' ':''}${n.text}${cs.length>1?` (${c.id.slice(l.key.length+1)})`:''}`))];
+    const histD=new Set((l.hist||[]).map(h=>h.date));
+    const plan=[...(l.hist||[]).map(h=>({date:h.date,s:`${dotD(h.date)} ${h.text}`})),
+      ...evs.filter(e=>LEG_PLAN.includes(e.type)&&!(histD.has(e.date)&&/메이팅|출산/.test(e.type))).map(e=>({date:e.date,s:line(e)})),
+      ...EVENTS.filter(e=>e.type==='새끼 암수 분리'&&litOf(e.cage)!==l.key&&String(e.text).includes(l.key+'-')).map(e=>({date:e.date,s:`${dotD(e.date)} 암수 분리 ${legTxt(e.text).split(' / ').filter(t=>t.startsWith(l.key+'-')).map(t=>t.slice(l.key.length+1)).join(' / ')}`})),
+      ...cs.filter(c=>c.mate||c.wait).map(c=>({date:'9',s:`진행 중: ${status(c).t}${cs.length>1?` (${c.id.slice(l.key.length+1)})`:''}`}))]
+      .sort((a,b)=>a.date.localeCompare(b.date)).map(x=>x.s);
+    const mated=cs.some(c=>c.mate||c.wait)||(l.hist||[]).some(h=>/메이팅|mating/i.test(h.text))||EVENTS.some(e=>e.type==='메이팅'&&(litOf(e.cage)===l.key||cs.some(c=>new RegExp(reEsc(c.id)+'(?![-A-Z0-9])').test(e.text||''))));
+    const par=!l.mom?'':l.mom.startsWith(L+' ')?'#'+l.mom.slice(L.length+1):l.mom;
+    return {no:'#'+l.no,dob:l.dob,m,f,t:m+f+p,par,info:info.join('\n'),mate:mated?'mating':'X',plan:plan.join('\n')}});
+}
+function legCountNow(){
+  const v={};LINES().forEach(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);v[L]=[cs.reduce((a,c)=>a+total(c),0),cs.length]});
+  const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0);v['일반']=[G.reduce((a,g)=>a+(+g.m||0)+(+g.f||0),0),G.length];
+  const from=addD(todayS(),-13),nl=(S.ntbcLog||[]).filter(x=>x.date>=from).sort((a,b)=>a.date.localeCompare(b.date));
+  const ntbc=nl.map(x=>`${md(x.date)}(${WK[d(x.date).getDay()]}${x.scope==='전체'?'':', '+x.scope+' cage만'})`).join(', ');
+  return {date:dotD(todayS()),v,ntbc};
+}
+function legacyForm(){
+  CUR=null;const X=S.xls||{n:30,date:''},n0=X.date===todayS()?X.n:X.n+1,last=(S.countLog||[]).slice(-1)[0];
+  $('#dT').textContent='원래 양식 엑셀';
+  $('#dB').innerHTML=`<div class="frm">
+   <div class="tip">예전 Mouse information 파일과 같은 시트 구성 (information method · 마리수 및 cage수 · FRG mice · Fah mice). litter(#번호)마다 한 줄, Information에는 사망·실험, Plan에는 Mating·출산·분리 기록이 날짜순으로 들어감.</div>
+   <div class="row"><label>번호 <input type="number" id="lgN" min="1" value="${n0}" style="width:70px"></label><label>이니셜 <input id="lgI" maxlength="6" value="${esc(initials(ME?.name||ME?.nick))}" style="width:70px"></label></div>
+   <label>남은 NTBC <input id="lgL" value="${esc(last?.left||'')}" placeholder="예: 8.1 vials"></label>
+   <div class="dim" id="lgF"></div>
+   <div class="row"><button class="btn pri" id="lgOk">다운로드</button></div></div>`;
+  const fn=()=>`Mouse_data_information_${$('#lgN').value}_${dotD(todayS())}_${$('#lgI').value.trim()}.xlsx`;
+  const upd=()=>$('#lgF').textContent=fn();upd();$('#lgN').oninput=upd;$('#lgI').oninput=upd;
+  $('#lgOk').onclick=async()=>{const n=+$('#lgN').value||n0,row={...legCountNow(),left:$('#lgL').value.trim()};
+    if(canEdit())await commit(st=>{st.xls={n,date:todayS()};st.countLog=[...(st.countLog||[]).filter(r=>r.date!==row.date),row].slice(-60)});
+    await exportLegacy(fn(),row)};
+  $('#dlg').showModal();
+}
+async function exportLegacy(name,now){
+  try{if(typeof ExcelJS==='undefined')await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){toast('엑셀 모듈 로딩 실패');return}
+  const wb=new ExcelJS.Workbook(),TOP={vertical:'top',wrapText:true},CEN={vertical:'middle',horizontal:'center'};
+  const hd=r=>{r.font={bold:true};r.eachCell(c=>c.alignment=CEN)};
+  // information method
+  const im=wb.addWorksheet('information method');im.getColumn(2).width=154;LEG_METHOD.forEach((t,i)=>{if(t)im.getCell(4+i,2).value=t});
+  // 마리수 및 cage수
+  const K=[...LINES(),'일반'],cw=wb.addWorksheet('마리수 및 cage수'),nc=2+K.length*2;
+  cw.getCell(1,1).value='날짜';cw.mergeCells(1,1,2,1);
+  K.forEach((k,i)=>{const c=2+i*2;cw.getCell(1,c).value=`${k} mice`;cw.mergeCells(1,c,1,c+1);cw.getCell(2,c).value='마리수';cw.getCell(2,c+1).value='Cage 수'});
+  [['총 cage 수',10],['NTBC 교체일',39],['남은 NTBC',11]].forEach(([h,w],i)=>{cw.getCell(1,nc+i).value=h;cw.mergeCells(1,nc+i,2,nc+i);cw.getColumn(nc+i).width=w});
+  cw.getColumn(1).width=11;hd(cw.getRow(1));hd(cw.getRow(2));
+  const rows=[...LEG_COUNTS,...(S.countLog||[]).filter(r=>r.date!==now.date&&!LEG_COUNTS.some(x=>x.date===r.date)),now].sort((a,b)=>a.date.localeCompare(b.date));
+  rows.forEach((r,j)=>{const R=3+j,cells=K.map((k,i)=>String.fromCharCode(66+i*2+1)+R);
+    cw.getCell(R,1).value=r.date;K.forEach((k,i)=>{const v=r.v[k]||['',''];cw.getCell(R,2+i*2).value=v[0];cw.getCell(R,3+i*2).value=v[1]});
+    cw.getCell(R,nc).value={formula:cells.join('+')};cw.getCell(R,nc+1).value=r.ntbc||'';cw.getCell(R,nc+2).value=r.left||''});
+  // 종류별 mice
+  LINES().forEach(L=>{const ws=wb.addWorksheet(L==='FAH'?'Fah mice':`${L} mice`);
+    ws.columns=[['Cage Number',13],['D.O.B',12],['Male',10],['Female',10],['Total per cage',13],['Parents',10],['Information',75],['Mating 여부',11],['Plan',78]].map(([header,width])=>({header,width}));
+    hd(ws.getRow(1));
+    legRows(L).forEach(x=>{const r=ws.addRow([x.no,x.dob?new Date(Date.UTC(...x.dob.split('-').map((v,i)=>+v-(i===1)))):'',x.m,x.f,x.t,x.par,x.info,x.mate,x.plan]);
+      r.getCell(2).numFmt='yyyy-mm-dd';r.eachCell(c=>c.alignment=TOP)})});
+  // 일반
+  const G=S.general||[];if(G.length){const ws=wb.addWorksheet('일반 mice');ws.columns=GF.map(([k,l])=>({header:l==='♂'?'Male':l==='♀'?'Female':l,width:k==='memo'?60:13}));hd(ws.getRow(1));
+    [...G].sort((a,b)=>(a.owner||'').localeCompare(b.owner||'','ko')).forEach(g=>{const r=ws.addRow(GF.map(([k])=>k==='memo'?[...gNotes(g).reverse().map(n=>n.text),...(g.gone||[]).map(goneS)].join('\n'):g[k]??''));r.eachCell(c=>c.alignment=TOP)})}
+  const buf=await wb.xlsx.writeBuffer(),u=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');
+  a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
+}
 function profileForm(first){
   CUR=null;
   const names=[...(S?.roster||['예원','도윤','소윤','한결','유진','재혁','혜민']),'교수님','기타'];
@@ -1134,7 +1221,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261103014741';
+let NEWV=0;const VER='20261103082113';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
