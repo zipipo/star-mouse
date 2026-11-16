@@ -329,6 +329,8 @@ const isAdmin=()=>ME&&ME.role==='admin';
 const lit=(k,st=S)=>st.litters.find(l=>l.key===k);
 const C=(st,id)=>{const c=st.cages.find(x=>x.id===id);if(!c)throw new Error(id+' 없음');return c};
 const total=c=>c.m+c.f+(c.pups?c.pups.n:0);
+/* 새끼 마릿수 미확인(작아서 못 셈)이면 '?' 또는 '약 5?' */
+const pupS=p=>p?(p.unk?(p.n?`약 ${p.n}?`:'?'):String(p.n)):'';
 const LINES=()=>(S.lines||['FRG','FAH']).filter(x=>x!=='일반');
 const WEANL=l=>WEAN[l]||[21,28];
 const XCOL=['#e3f4dc','#efe6ff','#dff4f7','#fbe8d6','#f0f0e0'];
@@ -344,7 +346,7 @@ const cname=c=>c.name?`${esc(c.name)} <span class="dim" style="font-weight:400;f
 const fixMate=c=>{c.m=Math.max(0,c.m);c.f=Math.max(0,c.f);if(!c.f)c.wait=null;if(c.mate){c.mate.n=Math.min(c.mate.n,c.m);if(!c.mate.n||!c.f){if(c.f&&!c.mate.n)c.wait=c.mate.start;c.mate=null}}};
 const dobS=(x,st=S)=>{const l=lit(x.litter,st);return l?l.dob.slice(2).replace(/-/g,'.'):''};
 const pairS=c=>{const src=c.mate&&S.cages.find(x=>x.id===c.mate.from);const dl=src?lit(src.litter):c.dad?lit(c.dad):null;return dl?`♂ ${dl.dob.slice(2).replace(/-/g,'.')} × ♀ ${dobS(c)}`:''};
-const cl=x=>`${x.name?x.name+' · ':''}${x.id} · DOB ${dobS(x)} · ${[x.m&&'♂'+x.m,x.f&&'♀'+x.f,x.pups&&'새끼 '+x.pups.n].filter(Boolean).join(' ')||'0'}`;
+const cl=x=>`${x.name?x.name+' · ':''}${x.id} · DOB ${dobS(x)} · ${[x.m&&'♂'+x.m,x.f&&'♀'+x.f,x.pups&&'새끼 '+pupS(x.pups)].filter(Boolean).join(' ')||'0'}`;
 const nextNo=(line,st=S)=>Math.max(0,...st.litters.filter(l=>l.line===line).map(l=>parseInt(l.no)||0))+1;
 const nextLetters=(k,n,st=S,skip=[])=>{const used=[...st.cages.filter(c=>c.litter===k).map(c=>c.id),...skip].filter(x=>x.startsWith(k+'-')).map(x=>x.slice(k.length+1));const out=[];let ch=65;while(out.length<n){const L=String.fromCharCode(ch++);if(!used.includes(L))out.push(L)}return out};
 
@@ -361,6 +363,7 @@ function todos(){
   if(nb&&-days(nb.next)<=6)o.push({id:'__ntbc',t:`NTBC 전체 교체 ${md(nb.next)}`});
   S.cages.forEach(c=>{
     if(c.pups){const [a,b]=WEANL(c.line),p=days(c.pups.born);if(p>=a-7)o.push({id:c.id,t:`${c.id} 새끼 암수 분리 ${md(addD(c.pups.born,a))}~${md(addD(c.pups.born,b))}`});
+      if(c.pups.unk&&p>=NO_TOUCH)o.push({id:c.id,t:`${c.id} 새끼 마릿수 세기 (미확인 · D${p})`});
       if(p>=NO_TOUCH-2&&p<=NO_TOUCH+2)o.push({id:c.id,t:`${c.id} 출산 2주 · 케이지 교체 ${md(addD(c.pups.born,NO_TOUCH))}`})}
     if(c.mate&&days(c.mate.start)>=MATE_DAYS-2)o.push({id:c.id,t:`${c.id} 수컷 빼기 ${md(addD(c.mate.start,MATE_DAYS))}`});
     if(c.wait&&days(c.wait)>=GEST[0]-3)o.push({id:c.id,t:`${c.id} 출산 예상 ${md(addD(c.wait,GEST[0]))}~${md(addD(c.wait,GEST[1]))}`});
@@ -434,7 +437,7 @@ function mateImg(c){const n=Math.max(1,Math.min(c.m,c.f)),k=Math.min(n,4),h=k>1?
 function mice(c){
   const row=(n,cl,sx)=>n>0?`<div><span class="sx ${cl}">${sx}</span>${'🐁'.repeat(n)}</div>`:n<0?`<div class="st late">${sx} ${n} 확인 필요</div>`:'';
   let h=row(c.m,'ma','♂')+row(c.f,'fe','♀');
-  if(c.pups)h+=`<div class="pups">${'<i></i>'.repeat(Math.max(0,Math.min(c.pups.n,24)))}<span>&nbsp;${c.pups.n}</span></div>`;
+  if(c.pups)h+=`<div class="pups">${'<i></i>'.repeat(Math.max(c.pups.unk&&!c.pups.n?1:0,Math.min(c.pups.n,24)))}<span>&nbsp;${pupS(c.pups)}${c.pups.unk?' <span class="st late" style="font-size:12px">마릿수 미확인</span>':''}</span></div>`;
   return `<div class="mice">${h||'<span class="dim">빈 cage</span>'}</div>`;
 }
 function renderBoard(){
@@ -458,7 +461,7 @@ function renderTree(){
   const node=l=>{const cs=S.cages.filter(c=>c.litter===l.key),m=cs.reduce((a,c)=>a+c.m,0),f=cs.reduce((a,c)=>a+c.f,0);
     const host=S.cages.find(c=>c.pups&&c.pups.litter===l.key), kids=S.litters.filter(k=>k.mom===l.key);
     const zero=l.ended||(!host&&m+f===0);
-    const info=zero?'0마리':host?`${host.pups.n}마리`:`♂${m} ♀${f}`;
+    const info=zero?'0마리':host?`${pupS(host.pups)}마리`:`♂${m} ♀${f}`;
     const mt=S.cages.filter(c=>c.litter===l.key&&(c.mate||c.wait)).map(c=>{const sc=c.mate&&S.cages.find(x=>x.id===c.mate.from),dl=sc?sc.litter:c.dad,st=status(c);return `<li><span class="node mt" role="button" data-mc="${esc(c.id)}">💕 <b class="fe">♀ ${esc(l.key)}</b> × <b class="ma">♂ ${esc(dl||'?')}</b><span class="dim">${esc(c.id)}${st?' · '+esc(st.t):''}</span></span></li>`});
     const par=l.mom&&S.litters.some(p=>p.key===l.mom)?`<span class="pp"><b class="fe">♀${esc(l.mom.split(' ').pop())}</b>×<b class="ma">♂${esc(l.dad?l.dad.split(' ').pop():'?')}</b></span>`:'';
     return `<li><span class="node ${zero?'end':l.line}"${!zero&&lcol(l.line)?` style="background:${lcol(l.line)};cursor:pointer"`:''} role="button" tabindex="0" data-lit="${esc(l.key)}" style="cursor:pointer"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span><span>${info}</span>${par}</span>${kids.length||mt.length?'<ul>'+mt.join('')+kids.map(node).join('')+'</ul>':''}</li>`};
@@ -466,8 +469,9 @@ function renderTree(){
   $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));$$('[data-mc]').forEach(b=>b.onclick=()=>openCage(b.dataset.mc));
 }
 function renderLog(){
-  $('#view').innerHTML=`<div class="row" style="margin-bottom:8px"><button class="btn pri" id="xls">엑셀로 내보내기</button><button class="btn pri" id="xlsL">원래 양식 엑셀</button><button class="btn pri" id="rpt">월간 현황조사표</button>${isAdmin()?'<button class="btn" id="bkB">백업</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`).join('')}</table></div>`;
-  $('#xls').onclick=()=>{exportXlsx();logEv({cage:'엑셀',type:'엑셀 내보내기',text:''})};$('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;
+  $('#view').innerHTML=`<div class="qa g2" style="margin-bottom:6px"><span class="qg">파일</span><button class="btn pri" id="xlsL">인수인계 엑셀</button><button class="btn pri" id="rpt">동물센터 월간 보고</button>${isAdmin()?'<button class="btn" id="bkB">백업 · 되돌리기</button>':''}</div>
+  <div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button>${canEdit()?'<button class="btn" id="opB">작업 붙여넣기</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`).join('')}</table></div>`;
+  $('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;$('#snB').onclick=snapForm;if($('#opB'))$('#opB').onclick=opsForm;
   $$('[data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev));
   if(isAdmin())$('#bkB').onclick=async()=>{const P=$('#bkP');P.textContent='불러오는 중…';let L;try{L=await Store.listBackups()}catch(e){P.textContent='백업 목록 못 불러옴';return}
     P.innerHTML=`<div class="ox"><table class="log"><tr><th>날짜</th><th>저장한 사람</th><th></th></tr>${L.map((b,i)=>`<tr><td>${esc(b.id)}</td><td>${esc(b.by||'')}</td><td><button class="btn" data-bd="${i}">내려받기</button> <button class="btn" data-br="${i}">이 날로 되돌리기</button></td></tr>`).join('')||'<tr><td colspan=3>아직 없음</td></tr>'}</table></div>`;
@@ -714,12 +718,12 @@ function actForm(c,a){
   if(a==='noBirth'){h='<div>출산 대기 해제 · 임신 안 됐으면 다시 Mating</div>';ok=async()=>{const D=pickD(c.wait,'Mating 시작일');if(!D)return;after(await commit(st=>{C(st,id).wait=null},[{cage:id,date:D,type:'출산 없음',text:''}]))}}
   if(a==='birth'){
     const no=nextNo(c.line),st0=c.mate?c.mate.start:c.wait;
-    h=`<div class="row">${num('fP','새끼')}<span>→ ${c.line} ${no}</span></div>${c.mate?warnH(['아직 수컷이 같이 있음 · 출산 때 수컷이 식살할 수 있음']):''}
+    h=`<div class="row">${num('fP','새끼')}<span>→ ${c.line} ${no}</span></div><label><input type="checkbox" id="fUnk"> 마릿수 미확인 (작아서 못 셈 · 숫자는 대략, 비워도 됨)</label>${c.mate?warnH(['아직 수컷이 같이 있음 · 출산 때 수컷이 식살할 수 있음']):''}
       <div class="tip">출산 후 1~2주는 케이지 교체 금지 · 라벨지에 출산일 표시</div>`;
-    ok=async()=>{const n=v('fP');if(!n)return;const D=pickD(st0,'Mating 시작일');if(!D)return;
+    ok=async()=>{const n=v('fP'),unk=$('#fUnk').checked;if(!n&&!unk){toast('새끼 수를 넣거나 마릿수 미확인 체크');return}const D=pickD(st0,'Mating 시작일');if(!D)return;
       after(await commit(st=>{const c=C(st,id),no=nextNo(c.line,st);if(c.mate){const s=st.cages.find(x=>x.id===c.mate.from);if(s)c.dad=s.litter}
         st.litters.push({key:`${c.line} ${no}`,line:c.line,no:String(no),dob:D,mom:c.litter,dad:c.dad||null,ended:false});
-        c.pups={litter:`${c.line} ${no}`,n,born:D};c.wait=null},[{cage:id,date:D,type:'출산',text:`${n} → ${c.line} ${no}`}]))};
+        c.pups={litter:`${c.line} ${no}`,n,born:D,...(unk?{unk:true}:{})};c.wait=null},[{cage:id,date:D,type:'출산',text:`${unk?(n?`약 ${n} (마릿수 미확인)`:'마릿수 미확인'):n} → ${c.line} ${no}`}]))};
   }
   if(a==='edit'){
     const l=lit(c.litter);
@@ -752,7 +756,7 @@ function actForm(c,a){
     const k=c.pups.litter;let rows=[{sx:'♂',n:0},{sx:'♀',n:0}];
     const draw=()=>{const Ls=nextLetters(k,rows.length);
       $('#wrows').innerHTML=rows.map((r,i)=>`<b>${k}-${Ls[i]}</b><select data-i="${i}" class="wsx" aria-label="성별" style="font-weight:700;color:${r.sx==='♂'?'var(--male)':'var(--female)'}"><option value="♂" ${r.sx==='♂'?'selected':''}>♂ 수컷</option><option value="♀" ${r.sx==='♀'?'selected':''}>♀ 암컷</option></select><input type="number" min="0" value="${r.n}" data-i="${i}" class="wn" aria-label="마리수">`).join('');
-      const upd=()=>{const s=rows.reduce((a,r)=>a+r.n,0);$('#wsum').textContent=`${s} / ${c.pups.n}마리`+(s<c.pups.n?` · ${c.pups.n-s} 남음`:'')};
+      const upd=()=>{const s=rows.reduce((a,r)=>a+r.n,0);$('#wsum').textContent=c.pups.unk?`${s}마리 (출산 때 마릿수 미확인 · 분리하면 남은 새끼 없음으로)`:`${s} / ${c.pups.n}마리`+(s<c.pups.n?` · ${c.pups.n-s} 남음`:'')};
       $$('.wsx').forEach(e=>e.onchange=()=>{rows[e.dataset.i].sx=e.value;draw()});
       $$('.wn').forEach(e=>e.oninput=()=>{rows[e.dataset.i].n=+e.value||0;upd()});upd()};
     F.innerHTML=`<div class="frm"><div class="wr" id="wrows"></div><div class="row"><button class="btn" id="wAdd">+ cage</button><span id="wsum" class="dim"></span></div>${dateIn()}
@@ -760,13 +764,13 @@ function actForm(c,a){
       <label><input type="checkbox" id="fL"> LMO 작성 완료</label><div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
     draw();$('#wAdd').onclick=()=>{rows.push({sx:'♀',n:0});draw()};
     $('#fOk').onclick=async()=>{const R=rows.filter(r=>r.n>0);if(!R.length)return;
-      if(R.reduce((a,r)=>a+r.n,0)>c.pups.n){$('#wsum').textContent='새끼 수보다 많음';return}
+      if(!c.pups.unk&&R.reduce((a,r)=>a+r.n,0)>c.pups.n){$('#wsum').textContent='새끼 수보다 많음';return}
       const D=pickD(c.pups.born,'출산일');if(!D)return;
       const Ls=nextLetters(k,rows.length),lmo=$('#fL').checked;
       const text=rows.map((r,i)=>r.n?`${k}-${Ls[i]} ${r.sx}${r.n}`:'').filter(Boolean).join(' / ')+(lmo?' · LMO 작성 완료':'');
       after(await commit(st=>{const c=C(st,id);const Ls=nextLetters(k,rows.length,st);
         rows.forEach((r,i)=>{if(!r.n)return;st.cages.push({id:`${k}-${Ls[i]}`,line:c.line,litter:k,m:r.sx==='♂'?r.n:0,f:r.sx==='♀'?r.n:0,pups:null,mate:null,wait:null,dad:null,note:''})});
-        const left=c.pups.n-rows.reduce((a,r)=>a+r.n,0);c.pups=left>0?{...c.pups,n:left}:null;if(!c.pups&&/새끼/.test(c.note||''))c.note=''},[{cage:id,date:D,type:'새끼 암수 분리',text}]))};
+        const left=c.pups.unk?0:c.pups.n-rows.reduce((a,r)=>a+r.n,0);c.pups=left>0?{...c.pups,n:left}:null;if(!c.pups&&/새끼/.test(c.note||''))c.note=''},[{cage:id,date:D,type:'새끼 암수 분리',text}]))};
     return;
   }
   if(a==='move'){
@@ -812,9 +816,9 @@ function actForm(c,a){
       after(await commit(st=>{const x=C(st,id),y=flipSex(x,pk);Object.assign(x,{m:y.m,f:y.f,indM:y.indM,indF:y.indF});fixMate(x)},[{cage:id,date:D,type:'성별 수정',text:[r.text,`♂${c.m}♀${c.f} → ♂${r.m}♀${r.f}`,memo].filter(Boolean).join(' · ')}]))};
   }
   if(a==='census'){
-    h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div><input id="fMemo" placeholder="메모">`;
+    h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div>${c.pups&&c.pups.unk?'<div class="tip">새끼 마릿수 미확인 → 센 숫자를 넣으면 확인됨으로 바뀜</div>':''}<input id="fMemo" placeholder="메모">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;const D=pickD();if(!D)return;
-      after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;if(!p)c.pups=null}fixMate(c)},[{cage:id,date:D,type:'실사',text:`♂${c.m}♀${c.f} → ♂${m}♀${f} ${memo}`.trim()}]))};
+      after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;delete c.pups.unk;if(!p)c.pups=null}fixMate(c)},[{cage:id,date:D,type:'실사',text:`♂${c.m}♀${c.f}${c.pups?' 새끼'+pupS(c.pups):''} → ♂${m}♀${f}${c.pups?' 새끼'+p:''} ${memo}`.trim()}]))};
   }
   F.innerHTML=`<div class="frm">${h}${DATED.includes(a)?dateIn():''}<div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
   $('#fOk').onclick=ok;
@@ -951,7 +955,7 @@ function openLitter(key){
   const HB=h=>canEdit()&&h.hi!=null?` <button class="evx" data-hi="${h.hi}">수정</button>`:'';
   $('#dT').textContent=key;
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}</div>
-   ${host?`<p>새끼 ${host.pups.n}마리, 어미와 ${host.id}에 있음</p>`:''}
+   ${host?`<p>새끼 ${pupS(host.pups)}마리, 어미와 ${host.id}에 있음</p>`:''}
    <div class="cards" style="margin:10px 0">${cs.map(c=>{const s=status(c);return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}"${cst(c)} data-c2="${esc(c.id)}"><span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${mice(c)}</button>`}).join('')||(host?'':'<span class="dim">남은 cage 없음</span>')}</div>
    <h4 style="margin:10px 0 4px;font-size:13.5px">출산 이력</h4>
    <ul class="tl">${hist.filter(h=>!(h.mt||/^메이팅/.test(h.text))).map(h=>`<li><span class="dim">${fd(h.date)}</span> ${esc(h.text)}${HB(h)}</li>`).join('')||'<li class="dim">없음</li>'}</ul>
@@ -1044,7 +1048,7 @@ function newCageForm(){
        <div class="row">${[...new Set([...LINES(),line])].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
        <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
        <div class="dim">아직 분리 안 된 새끼가 있는 cage</div>
-       ${pc.map(x=>`<button class="btn" style="text-align:left" data-wean="${x.id}">${x.id} · 새끼 ${x.pups.n}마리 · ${x.pups.litter} · D${days(x.pups.born)}</button>`).join('')||'<div>분리할 새끼가 있는 cage 없음</div>'}</div>`;
+       ${pc.map(x=>`<button class="btn" style="text-align:left" data-wean="${x.id}">${x.id} · 새끼 ${pupS(x.pups)}마리 · ${x.pups.litter} · D${days(x.pups.born)}</button>`).join('')||'<div>분리할 새끼가 있는 cage 없음</div>'}</div>`;
       $$('[data-nl]').forEach(b=>b.onclick=()=>{line=b.dataset.nl;reset();draw()});
       $$('[data-np]').forEach(b=>b.onclick=()=>{purpose=b.dataset.np;reset();draw()});
       $$('[data-wean]').forEach(b=>b.onclick=()=>openCage(b.dataset.wean,'wean'));hookLine();return}
@@ -1159,7 +1163,94 @@ async function exportXlsx(){
   const buf=await wb.xlsx.writeBuffer(),u=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');
   a.href=u;a.download=`STAR Mouse ${todayS()}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
-/* ===== 원래 양식 엑셀 (Mouse_data_information_번호_날짜_이니셜) ===== */
+/* ===== 현황 복사 · 작업 붙여넣기 (Claude가 만든 작업 목록을 미리보기 후 한번에 저장) ===== */
+function snapshot(){
+  const lastN=c=>notesOf(c).slice(0,3).map(n=>`${n.t?n.t.slice(0,10)+' ':''}${n.text}`);
+  return {today:todayS(),by:ME?.nick||'',
+    cages:S.cages.filter(c=>total(c)>0||c.mate||c.wait).map(c=>{const o={id:c.id,dob:(lit(c.litter)||{}).dob,m:c.m,f:c.f};
+      if(c.name)o.name=c.name;if(c.pups)o.pups=c.pups;if(c.mate)o.mate=c.mate;if(c.wait)o.wait=c.wait;if(c.dad)o.dad=c.dad;
+      const t=indS(c);if(t)o.ind=t;const ns=lastN(c);if(ns.length)o.notes=ns;return o}),
+    litters:S.litters.map(l=>[l.key,l.dob,l.mom||'',l.dad||'',l.ended?'종료':'']),
+    general:(S.general||[]).map(g=>({no:g.no,owner:g.owner,strain:g.strain,dob:g.dob,m:+g.m||0,f:+g.f||0})),
+    events:EVENTS.slice(0,120).map(e=>[e.id,e.date,e.cage,e.type,e.text||'',e.by||''])};
+}
+/* ops 하나씩 st에 적용하고 남길 기록을 돌려줌. 틀린 op는 Error */
+const OPS={
+  mateEnd:(st,o)=>{const c=C(st,o.cage);if(!c.mate)throw new Error('Mating 중 아님');const s=C(st,c.mate.from),n=Math.min(c.mate.n,c.m);
+    c.m-=n;s.m+=n;c.wait=c.mate.start;c.dad=s.litter;const t=`♂${n} → ${s.id}`;c.mate=null;return {type:'수컷 빼기',text:t}},
+  birth:(st,o)=>{const c=C(st,o.cage);if(!(o.n>0)&&!o.unk)throw new Error('n 또는 unk:true 필요');if(c.pups)throw new Error('이미 새끼 있음');const no=nextNo(c.line,st);
+    if(c.mate){const s=st.cages.find(x=>x.id===c.mate.from);if(s)c.dad=s.litter}
+    st.litters.push({key:`${c.line} ${no}`,line:c.line,no:String(no),dob:o.date,mom:c.litter,dad:c.dad||null,ended:false});
+    c.pups={litter:`${c.line} ${no}`,n:o.n||0,born:o.date,...(o.unk?{unk:true}:{})};c.wait=null;return {type:'출산',text:`${o.unk?(o.n?`약 ${o.n} (마릿수 미확인)`:'마릿수 미확인'):o.n} → ${c.line} ${no}${o.text?' · '+o.text:''}`}},
+  noBirth:(st,o)=>{const c=C(st,o.cage);c.wait=null;return {type:'출산 없음',text:o.text||''}},
+  mateStart:(st,o)=>{const c=C(st,o.cage);if(c.mate){const a=c.mate.start;c.mate.start=o.start;return {type:'정보 수정',text:`Mating 시작 ${fd(a)} → ${fd(o.start)}`}}
+    if(c.wait){const a=c.wait;c.wait=o.start;return {type:'정보 수정',text:`Mating 시작 ${fd(a)} → ${fd(o.start)}`}}throw new Error('Mating·출산 대기 아님')},
+  census:(st,o)=>{const c=C(st,o.cage),a=`♂${c.m}♀${c.f}${c.pups?' 새끼'+c.pups.n:''}`;if(o.m!=null)c.m=o.m;if(o.f!=null)c.f=o.f;
+    if(c.pups&&o.pups!=null){c.pups.n=o.pups;delete c.pups.unk;if(!o.pups)c.pups=null}fixMate(c);return {type:'실사',text:`${a} → ♂${c.m}♀${c.f}${c.pups?' 새끼'+c.pups.n:''}${o.text?' '+o.text:''}`}},
+  death:(st,o)=>OPS._out(st,o,'사망'),exp:(st,o)=>OPS._out(st,o,'실험'),
+  _out:(st,o,type)=>{const c=C(st,o.cage),m=Math.min(o.m||0,c.m),f=Math.min(o.f||0,c.f),p=c.pups?Math.min(o.pups||0,c.pups.n):0;if(!m&&!f&&!p)throw new Error('마리수 0');
+    c.m-=m;c.f-=f;c.indM=inds(c,'m');c.indF=inds(c,'f');if(p){c.pups.n-=p;if(!c.pups.n)c.pups=null}fixMate(c);
+    return {type,n:m+f+p,text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,o.text&&(type==='실험'?'· ':'· 사유 ')+o.text].filter(Boolean).join(' ')}},
+  memo:(st,o)=>{const c=C(st,o.cage);c.notes=[...(c.notes||[]),{t:nowS(),by:ME.nick,text:o.text}];return {type:'메모',text:o.text}},
+  wean:(st,o)=>{const c=C(st,o.cage);if(!c.pups)throw new Error('새끼 없음');const k=c.pups.litter,R=(o.rows||[]).filter(r=>r.n>0),s=R.reduce((a,r)=>a+r.n,0);
+    if(!s||(!c.pups.unk&&s>c.pups.n))throw new Error('분리 마리수 확인');const Ls=nextLetters(k,R.length,st);
+    R.forEach((r,i)=>st.cages.push({id:`${k}-${Ls[i]}`,line:c.line,litter:k,m:r.sx==='♂'?r.n:0,f:r.sx==='♀'?r.n:0,pups:null,mate:null,wait:null,dad:null,note:''}));
+    const left=c.pups.unk?0:c.pups.n-s;c.pups=left>0?{...c.pups,n:left}:null;return {type:'새끼 암수 분리',text:R.map((r,i)=>`${k}-${Ls[i]} ${r.sx}${r.n}`).join(' / ')+(o.text?' · '+o.text:'')}},
+  move:(st,o)=>{const c=C(st,o.cage),m=Math.min(o.m||0,c.m),f=Math.min(o.f||0,c.f);if(!m&&!f)throw new Error('마리수 0');let T;
+    if(!o.to||o.to==='new'){T={id:`${c.litter}-${nextLetters(c.litter,1,st)[0]}`,line:c.line,litter:c.litter,m:0,f:0,pups:null,mate:null,wait:null,dad:null,note:''};st.cages.push(T)}else T=C(st,o.to);
+    c.m-=m;c.f-=f;T.m+=m;T.f+=f;fixMate(c);return {type:!o.to||o.to==='new'?'새 cage':'이동',text:`♂${m} ♀${f} → ${T.id}${o.text?' · '+o.text:''}`}},
+  sex:(st,o)=>{const c=C(st,o.cage),d=(o.mf||0)-(o.fm||0),ix=(n,k)=>Array.from({length:k},(_,i)=>n-k+i);if(!d)throw new Error('mf 또는 fm');
+    const pk=d>0?{m:ix(c.m,d),f:[]}:{m:[],f:ix(c.f,-d)};const a=`♂${c.m}♀${c.f}`,y=flipSex(c,pk);Object.assign(c,{m:y.m,f:y.f,indM:y.indM,indF:y.indF});fixMate(c);
+    return {type:'성별 수정',text:[y.text,`${a} → ♂${c.m}♀${c.f}`,o.text].filter(Boolean).join(' · ')}},
+  litter:(st,o)=>{const l=lit(o.litter,st);if(!l)throw new Error(o.litter+' 없음');const ch=[];['dob','mom','dad'].forEach(k=>{if(o[k]!==undefined&&o[k]!==l[k]){ch.push(`${k} ${l[k]||'-'} → ${o[k]||'-'}`);l[k]=o[k]}});
+    if(o.ended!==undefined&&!!o.ended!==!!l.ended){ch.push(o.ended?'종료':'종료 해제');l.ended=!!o.ended}return {cage:o.litter,type:'정보 수정',text:ch.join(' · ')||'바뀐 것 없음'}},
+  log:(st,o)=>({type:o.type||'기록',text:o.text||''}),
+};
+const OP_EV=['delEvent','editEvent'];
+function planOps(ops){
+  const st=clone(S),rows=[];
+  ops.forEach((o,i)=>{try{
+    if(OP_EV.includes(o.op)){const e=EVENTS.find(x=>x.id===o.id);if(!e)throw new Error('기록 id 없음');
+      rows.push({i,o,ok:1,line:`${o.op==='delEvent'?'기록 삭제':'기록 수정'} · ${evS(e)}${o.op==='editEvent'?' → '+['date','cage','type','text'].filter(k=>o[k]!==undefined).map(k=>`${k}:${o[k]}`).join(' '):''}`});return}
+    const f=OPS[o.op];if(!f||o.op[0]==='_')throw new Error('모르는 op: '+o.op);
+    const date=o.date||todayS();if(date>todayS())throw new Error('미래 날짜');
+    const r=f(st,{...o,date});const ev={cage:r.cage||o.cage||'전체',date,...r};delete ev.cage_;rows.push({i,o,ok:1,ev,line:`${fd(date)} ${ev.cage} ${ev.type} ${ev.text}`})
+  }catch(e){rows.push({i,o,ok:0,line:`${o.op||'?'} ${o.cage||o.id||''} · ${e.message}`})}});
+  return {st,rows,bad:rows.filter(r=>!r.ok).length};
+}
+async function applyOps(ops,note){
+  const P=planOps(ops);if(P.bad)return {ok:false,rows:P.rows};
+  const stOps=ops.filter(o=>!OP_EV.includes(o.op)),evs=P.rows.filter(r=>r.ev).map(r=>({...r.ev,via:'붙여넣기'}));
+  if(stOps.length){const ok=await commit(st=>{stOps.forEach(o=>OPS[o.op](st,{...o,date:o.date||todayS()}))},evs);if(!ok)return {ok:false,rows:P.rows}}
+  for(const o of ops.filter(o=>OP_EV.includes(o.op))){const e=EVENTS.find(x=>x.id===o.id);if(!e)continue;
+    if(o.op==='delEvent')await editEv(e.id,null,null,{cage:e.cage,type:'기록 삭제',text:`${evS(e)}${e.by?' · 입력 '+e.by:''}${o.why?' · '+o.why:''}`});
+    else{const p={ed:nowS(),edBy:ME.nick};['date','cage','type','text'].forEach(k=>{if(o[k]!==undefined)p[k]=o[k]});if(!e.orig)p.orig={date:e.date,cage:e.cage,type:e.type,text:e.text||''};
+      await editEv(e.id,p,null,{cage:e.cage,type:'기록 수정',text:`[${evS(e)}] ${Object.keys(p).filter(k=>!['ed','edBy','orig'].includes(k)).map(k=>`${k} ${e[k]||'-'} → ${p[k]}`).join(' · ')}${o.why?' · '+o.why:''}`})}}
+  if(note)logEv({cage:'전체',type:'작업 붙여넣기',text:note});
+  return {ok:true,rows:P.rows};
+}
+window.starAgent={snapshot,preview:ops=>planOps(ops).rows.map(r=>(r.ok?'✓ ':'✗ ')+r.line),apply:applyOps,ops:Object.keys(OPS).filter(k=>k[0]!=='_').concat(OP_EV)};
+function snapForm(){
+  CUR=null;const txt=JSON.stringify(snapshot());$('#dT').textContent='현황 보내기';
+  $('#dB').innerHTML=`<div class="frm"><div class="tip">복사해서 Claude 채팅에 붙여넣기 + 오늘 한 작업(라벨 사진 등)을 같이 보내면, Claude가 '작업 붙여넣기'에 넣을 내용을 만들어 줌. 백업 파일보다 짧게 cage·litter·최근 기록만 담김.</div>
+    <textarea id="snT" readonly style="min-height:160px;font-size:11px">${esc(txt)}</textarea><div class="row"><button class="btn pri" id="snC">복사</button><span class="dim" id="snM">${(txt.length/1024).toFixed(1)} KB</span></div></div>`;
+  $('#snC').onclick=async()=>{try{await navigator.clipboard.writeText(txt);$('#snM').textContent='복사됨'}catch(e){$('#snT').select();document.execCommand('copy');$('#snM').textContent='복사됨 (선택 후 복사)'}};
+  $('#dlg').showModal();
+}
+function opsForm(){
+  if(!canEdit())return;CUR=null;$('#dT').textContent='작업 붙여넣기';
+  $('#dB').innerHTML=`<div class="frm"><div class="tip">Claude가 만든 작업 목록(JSON)을 붙여넣고 미리보기 → 저장. 한 줄이라도 틀리면 저장 안 됨.</div>
+    <textarea id="opT" style="min-height:140px;font-size:12px" placeholder='{"note":"11/16 유진·재혁 물 교체","ops":[{"op":"mateEnd","cage":"FRG 3-C","date":"2026-11-16"}]}'></textarea>
+    <div class="row"><button class="btn" id="opP">미리보기</button><button class="btn pri" id="opA" disabled>저장</button></div><div id="opR"></div></div>`;
+  let cur=null;const parse=()=>{try{const j=JSON.parse($('#opT').value);return Array.isArray(j)?{ops:j}:j}catch(e){$('#opR').innerHTML=warnH(['JSON 형식 오류: '+e.message]);return null}};
+  $('#opT').oninput=()=>{$('#opA').disabled=true};
+  $('#opP').onclick=()=>{cur=parse();if(!cur)return;const P=planOps(cur.ops||[]);
+    $('#opR').innerHTML=`${cur.note?`<div><b>${esc(cur.note)}</b></div>`:''}<ul class="tl">${P.rows.map(r=>`<li style="${r.ok?'':'color:var(--alert-ink);font-weight:700'}">${r.ok?'✓':'✗'} ${esc(r.line)}</li>`).join('')}</ul>${P.bad?warnH([`${P.bad}줄 오류 · 고친 뒤 다시 미리보기`]):''}`;
+    $('#opA').disabled=!!P.bad||!P.rows.length};
+  $('#opA').onclick=async()=>{if(!cur)return;$('#opA').disabled=true;const r=await applyOps(cur.ops||[],cur.note);if(r.ok){toast(`${r.rows.length}개 저장`);$('#dlg').close()}else $('#opR').innerHTML+=warnH(['저장 안 됨 · 미리보기 다시'])};
+  $('#dlg').showModal();
+}
+/* ===== 인수인계 엑셀 (Mouse_data_information_번호_날짜_이니셜) ===== */
 const LEG_METHOD=['[FRG and FAH mice maintain protocol] 정독 바랍니다. ','1. NTBC 교체는 2주마다 2명씩 돌아가면서 진행중에 있습니다. ','2. NTBC 교체 담당 순서는 예원-도윤-소윤-한결-유진-재혁-혜민입니다. ','3. 매주 월/목 또는 화/금요일마다 일주일에 한번 NTBC 음수 교체 진행합니다. ','4. 매주 확인 후 mice 마리수가 많거나 출산케이지의 경우 추가로 음수를 교체 (일주일에 2회) 합니다. ','5. 실험동물을 확인하여 라벨지 색상을 교체합니다. (FAH: 핑크색, FRG: 노란색, mating/출산/실험과 같은 특이사항: 파란색)','6. 라벨지 내 IACUC number, 담당자, DOB, Cage number 등 자세히 기록합니다. ','7. 실험에 사용한 마우스는 DOB에 따라 information 내 작성 및 mice 마리수에서 제외합니다. (실험자가 따로 Cage number 기입)','8. 암수분리는 DOB 5주령이 되면 진행하나, mice 크기가 작은경우 분리하지 않고, 기간을 두고 분리합니다.','9. 암수분리할 때 마다 동물실 내 LMO 관리대장 (김요한 교수님) 작성 업데이트 합니다.','10. 교체 차례가 끝나는 날에 최종 mouse information update해서 관련 issue나 참고해야할 부분 전달합니다. (mating, 출산, NTBC aliquot, NTBC 주문일정, 암수분리일정 등)','11. 매 월 말 Mice 종류별 총 마리수, Cage 수 확인하여 랩실에 전달합니다. (실험동물센터 보고)','','**NTBC 보관 위치: 실험실 6 냉동실 (김요한 교수님) ','**실험동물실 사육실: 사육실 11','**약품물병 폐기: 약품물병 표시 후 pass룸에 보관. '];
 const LEG_COUNTS=[{date:'2026.08.24',v:{FRG:[56,20],FAH:[33,12],'일반':[11,4]},ntbc:'매주 월/목 (2차)',left:''},
  {date:'2026.10.01',v:{FRG:['55+a',22],FAH:[42,18],'일반':[55,17]},ntbc:'9/28 (월), 10/1(목, 4마리 이상 cage만 교체)',left:''},
@@ -1182,7 +1273,7 @@ function legRows(L){
     const suf=e=>{const s=String(e.cage).slice(l.key.length+1);return s&&cs.length>1?` (${s})`:''};
     const line=e=>`${dotD(e.date)} ${e.type} ${legTxt(e.text)}`.trim()+suf(e);
     const born=EVENTS.find(e=>e.type==='출산'&&new RegExp('→ '+reEsc(l.key)+'$').test(e.text||''));
-    const info=[...(born?[`총 새끼수 ${parseInt(born.text)||'?'}마리`]:[]),...(p?[`새끼 ${p}마리 암수 분리 전`]:[]),
+    const info=[...(born?[`총 새끼수 ${parseInt(born.text)||'?'}마리`]:[]),...(p||host.some(c=>c.pups.unk)?[`새끼 ${host.map(c=>pupS(c.pups)).join('+')}마리 암수 분리 전${host.some(c=>c.pups.unk)?' (마릿수 미확인)':''}`]:[]),
       ...evs.filter(e=>LEG_INFO.includes(e.type)).map(line),
       ...cs.flatMap(c=>notesOf(c).map(n=>`${n.t?dotD(n.t.slice(0,10))+' ':''}${n.text}${cs.length>1?` (${c.id.slice(l.key.length+1)})`:''}`))];
     const histD=new Set((l.hist||[]).map(h=>h.date));
@@ -1204,17 +1295,19 @@ function legCountNow(){
 }
 function legacyForm(){
   CUR=null;const X=S.xls||{n:30,date:''},n0=X.date===todayS()?X.n:X.n+1,last=(S.countLog||[]).slice(-1)[0];
-  $('#dT').textContent='원래 양식 엑셀';
+  $('#dT').textContent='인수인계 엑셀';
   $('#dB').innerHTML=`<div class="frm">
-   <div class="tip">예전 Mouse information 파일과 같은 시트 구성 (information method · 마리수 및 cage수 · FRG mice · Fah mice). litter(#번호)마다 한 줄, Information에는 사망·실험, Plan에는 Mating·출산·분리 기록이 날짜순으로 들어감.</div>
+   <div class="tip">당번 끝날 때 넘기는 Mouse_data_information 파일. litter(#번호)마다 한 줄 · Information = 사망·실험 · Plan = Mating·출산·분리. 번호는 받을 때마다 +1.</div>
    <div class="row"><label>번호 <input type="number" id="lgN" min="1" value="${n0}" style="width:70px"></label><label>이니셜 <input id="lgI" maxlength="6" value="${esc(initials(ME?.name||ME?.nick))}" style="width:70px"></label></div>
    <label>남은 NTBC <input id="lgL" value="${esc(last?.left||'')}" placeholder="예: 8.1 vials"></label>
    <div class="dim" id="lgF"></div>
-   <div class="row"><button class="btn pri" id="lgOk">다운로드</button></div></div>`;
+   <div class="row"><button class="btn pri" id="lgOk">다운로드</button></div>
+   <div class="dim" style="border-top:1px solid var(--line);padding-top:8px">cage마다 한 줄인 표가 필요하면 <button class="btn" id="lgC" style="font-size:12.5px;padding:3px 10px">cage별 표 받기</button></div></div>`;
   const fn=()=>`Mouse_data_information_${$('#lgN').value}_${dotD(todayS())}_${$('#lgI').value.trim()}.xlsx`;
+  $('#lgC').onclick=()=>{exportXlsx();logEv({cage:'엑셀',type:'cage별 표 엑셀',text:''})};
   const upd=()=>$('#lgF').textContent=fn();upd();$('#lgN').oninput=upd;$('#lgI').oninput=upd;
   $('#lgOk').onclick=async()=>{const n=+$('#lgN').value||n0,row={...legCountNow(),left:$('#lgL').value.trim()};
-    if(canEdit())await commit(st=>{st.xls={n,date:todayS()};st.countLog=[...(st.countLog||[]).filter(r=>r.date!==row.date),row].slice(-60)},[{cage:'엑셀',type:'원래 양식 엑셀',text:fn()}]);
+    if(canEdit())await commit(st=>{st.xls={n,date:todayS()};st.countLog=[...(st.countLog||[]).filter(r=>r.date!==row.date),row].slice(-60)},[{cage:'엑셀',type:'인수인계 엑셀',text:fn()}]);
     await exportLegacy(fn(),row)};
   $('#dlg').showModal();
 }
@@ -1299,7 +1392,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261116092514';
+let NEWV=0;const VER='20261116123824';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
