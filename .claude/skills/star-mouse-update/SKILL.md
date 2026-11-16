@@ -36,8 +36,10 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 |---|---|---|
 | `mateEnd` | cage, date | 수컷을 원래 cage(mate.from)로 돌려보내고 출산 대기로 |
 | `birth` | cage, date, n?, unk?, text? | 새 litter 만들고 새끼 n. 작아서 못 셌으면 `"unk":true` (n은 대략, 생략 가능) |
+| `birthUndo` | cage, date, wait?, text? | 출산 취소: 새끼(c.pups) 지우고 그 litter 삭제(분리된 cage 있으면 종료), 출산 대기로 되돌림. 대기 기준일은 출산 때 저장한 `fromWait`, 예전 기록(fromWait 없음)이면 `wait`(Mating 시작일) 필수 |
 | `noBirth` | cage, date | 출산 대기 해제 |
-| `mateStart` | cage, start | Mating 시작일(또는 출산 대기 기준일) 고침 |
+| `mateStart` | cage, start, wait?, text? | Mating 시작일(또는 출산 대기 기준일) 고침. Mating·대기·새끼 다 없는 cage에 `"wait":true`면 start 기준으로 출산 대기를 새로 켬 |
+| `ntbc` | date, scope (`"전체"` 또는 `"4마리↑"`), by?, text? | NTBC 교체: ntbcLog에 {date, scope, by} 추가 + NTBC 기록. by 생략하면 그 날짜 당번 2명 (예: `"유진·재혁"`) |
 | `census` | cage, m?, f?, pups?, text? | 실제 센 마리수로 맞춤 (실사) |
 | `death` / `exp` | cage, m?, f?, pups?, text, date | 빼기 (사망 / 실험) |
 | `wean` | cage, date, rows:[{sx:"♂",n},{sx:"♀",n}] | 새끼 암수 분리 → 새 cage |
@@ -49,7 +51,7 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 | `editEvent` | id, date?/cage?/type?/text?, why | 기록 고침 |
 | `log` | cage, type, text, date | 상태는 그대로, 기록만 남김 |
 
-ops는 위에서부터 차례로 적용된다. 출산을 다른 cage로 옮길 때는 `delEvent`(잘못된 출산 기록) + 잘못 붙은 새끼 정리(`census` pups 0 또는 `litter` ended) + 맞는 cage에 `birth` 순서로 쓴다. `delEvent`는 기록만 지우고 cage 상태는 안 바꾸니까 상태는 따로 op로 고친다.
+ops는 위에서부터 차례로 적용된다. 출산을 잘못 넣었으면 `birthUndo` 한 줄로 되돌린다 (원래 `출산` 기록은 남고 `출산 취소` 기록이 추가됨, 원래 기록까지 지우려면 `delEvent`). 출산을 다른 cage로 옮길 때는 `delEvent`(잘못된 출산 기록) + 잘못 붙은 새끼 정리(`census` pups 0 또는 `litter` ended) + 맞는 cage에 `birth` 순서로 쓴다. `delEvent`는 기록만 지우고 cage 상태는 안 바꾸니까 상태는 따로 op로 고친다.
 
 ## 규칙
 
