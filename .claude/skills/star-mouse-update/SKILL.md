@@ -14,6 +14,8 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 
 ## 사이트 화면 (유진이 동물실에서 보는 것)
 
+- **당번 메모 vs 인수인계**: 당번 메모(`dutyNotes`, 인수인계 탭 위)는 이번 당번 2명이 보는 할 일, 인수인계(`handovers`)는 당번 끝날 때 다음 당번에게 한 번 보내는 글. 유진이 "다음 당번한테 넘겨줘"가 아니라 "이번 주에 할 거"를 말하면 dutyNote로. snapshot `duty.now/next`가 지금·다음 당번, `handovers`(text 80자까지), `dutyNotes`가 들어 있음.
+- 위 띠는 지금 당번이 받은(to에 이름이 든) 인수인계 중 미확인 최근 것만. 오늘 할 일의 '인수인계 확인'도 받는 사람에게만.
 - 첫 화면 **오늘 할 일**: 수컷 빼기(Mating D14~) · 출산 확인(Mating 시작 + 19일~, [출산 n마리]/[아직]/[출산 없음]) · 새끼 다시 세기(출산 D14, 다시 센 날은 `pups.cnt`) · 암수분리(출산 + 35일) · NTBC 교체(마지막 전체 교체 + 7일) · 인수인계 미확인 · 출산 기록 없는 새끼. 지난 일은 빨강으로 위에. [아직]은 `snooze`에 오늘 날짜로 남고 기록도 남는다.
 - 같은 DOB cage 알파벳은 cage 창 [적었음]으로 `labW`에 남는다 (snapshot cages에는 안 나옴).
 - 케이지 카드 제목은 라벨지처럼 **`♀ 26.04.06 / ♂ 26.06.21`** (Mating 중이면 데려온 수컷 DOB), cage id는 작게 아래. 같은 line에 같은 DOB cage가 여럿이면 `라벨에 1-D 적기`가 뜬다. 유진이 라벨 DOB로 말하면 검색칸(26.04.06 · 0406 · 4/6)으로 같은 cage를 찾게 하면 된다.
@@ -59,6 +61,10 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 | `delEvent` | id, why | 잘못된 기록 삭제 (id는 snapshot events 첫 칸) |
 | `editEvent` | id, date?/cage?/type?/text?, why | 기록 고침 |
 | `log` | cage, type, text, date | 상태는 그대로, 기록만 남김 |
+| `dutyNote` | text, due?, cage? | 이번 당번 메모 추가 (due가 오늘이거나 지나면 오늘 할 일에 뜸). cage는 snapshot에 있는 id만 |
+| `dutyNoteDone` | match | 체크 안 된 당번 메모 중 match 글자가 들어간 것 하나를 체크. 둘 이상 맞으면 ✗ → match를 길게 |
+| `handoverEdit` | id, from?, to?, week?, text?, why? | 인수인계 한 건 고침 (id는 snapshot handovers). from·to는 `"유진 · 재혁"` 꼴, week는 보내는 당번 기간 시작일 |
+| `handoverToNote` | id | 인수인계를 당번 메모로 옮김 (원래 인수인계는 지우고 `인수인계 → 당번 메모` 기록) |
 
 ops는 위에서부터 차례로 적용된다. 출산을 잘못 넣었으면 `birthUndo` 한 줄로 되돌린다 (원래 `출산` 기록은 남고 `출산 취소` 기록이 추가됨, 원래 기록까지 지우려면 `delEvent`). 출산을 다른 cage로 옮길 때는 `delEvent`(잘못된 출산 기록) + 잘못 붙은 새끼 정리(`census` pups 0 또는 `litter` ended) + 맞는 cage에 `birth` 순서로 쓴다. `delEvent`는 기록만 지우고 cage 상태는 안 바꾸니까 상태는 따로 op로 고친다.
 

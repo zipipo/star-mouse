@@ -1,5 +1,15 @@
 # STAR Mouse 작업 기록
 
+## 2026-11-17 · 당번 메모와 인수인계 나누기 (main)
+
+- **당번 메모** (`st.dutyNotes`, colony 상태에 저장 → 기록·되돌리기 됨): {id, text, due, cage, done, doneBy, doneAt, by, t, week}. 인수인계 탭 맨 위 '이번 당번 메모'에서 추가(내용·볼 날짜·cage)·수정·지우기·[했음]/[되살리기]. 지난 당번의 체크 안 된 메모는 접어서 아래. due가 오늘 이하인 체크 안 된 메모는 오늘 할 일 '당번 메모' [했음]. 기록 타입: 당번 메모 / 당번 메모 했음 / 되살림 / 수정 / 지움.
+- **인수인계 쓰기**: 탭 안 입력칸 대신 [인수인계 쓰기] 창. from → to를 크게 보여주고 두 칸에서 바꿀 수 있음. 기본값 `hoDefault()`: 이번 당번 → 다음 당번 (쓰는 사람이 지난 당번이고 이번 당번이 아니면 지난 → 이번). week는 보내는 당번 기간 시작일. 체크 안 된 당번 메모가 '- 내용 (날짜) · cage' 초안으로 채워짐.
+- **위 띠**: `find(x=>x.week<w.week)` 방식 뺌. 지금 당번 pair가 to에 든 인수인계 중 미확인 최근 것만, 확인하면 띠 사라지고 탭 목록엔 남음. 오늘 할 일의 '인수인계 확인'은 to에 내 이름(ME.name)이 있을 때만.
+- **기존 데이터 고치기**: 인수인계마다 [수정] → from·to·week·내용 고치기, [당번 메모로 옮기기]. op `handoverEdit`, `handoverToNote` (지우기 권한 없으면 `moved:true`로 숨김). snapshot에 handovers·dutyNotes·duty(now/next) 추가.
+- op 추가: `dutyNote`, `dutyNoteDone`(match가 둘 이상 맞으면 ✗).
+- 확인: 데모 390px에서 메모 추가 → 오늘 할 일 [했음] → 기록, 인수인계 쓰기 초안·from→to, 받은/보낸 사람별 띠·오늘 할 일, 확인 뒤 띠 사라짐, handoverEdit·handoverToNote, snapshot, 앞 기능(되돌리기·오늘 할 일·memoDel) 다시 확인.
+- 남은 것: 실제 데이터의 10/29 '소윤 · 한결 → 예원 · 도윤' 같은 예전 인수인계는 지금 당번(유진·재혁) 앞이 아니라서 띠에 안 뜸. 당번끼리 메모였던 건 [수정] → [당번 메모로 옮기기]로 정리. Firestore 규칙이 handovers update·delete를 막으면 수정이 실패하니 첫 수정 때 확인.
+
 ## 2026-11-17 · starAgent memoDel op (main)
 
 - `memoDel({cage, match, why?})`: cage 메모(c.notes와 예전 c.note) 중 match 글자가 들어간 걸 모두 지우고 `메모 지움` 기록 (지운 메모 글 + why). 맞는 게 없거나 match가 비면 미리보기 ✗. 되돌리기도 됨 (apply 결과 undo).

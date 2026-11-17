@@ -312,6 +312,8 @@ function fbStore(){
     saveReport:p=>db.doc('colony/report').set(p,{merge:true}),
     addHandover:h=>db.collection('handovers').add({...h,ts:FV.serverTimestamp()}),
     updateHandover:(id,p)=>db.doc('handovers/'+id).update(p),
+    /* 지우기 권한이 없으면 moved 표시로 숨김 */
+    deleteHandover:id=>db.doc('handovers/'+id).delete().catch(e=>db.doc('handovers/'+id).update({moved:true})),
   };
 }
 let DID=0;
@@ -336,6 +338,7 @@ function demoStore(){
     async backup(){},async listBackups(){return [{id:ymd(new Date()),by:'데모',main:clone(S),events:[],handovers:[]}]},
     async addHandover(h){HANDOVERS.unshift({id:String(Date.now()),...h});render()},
     async updateHandover(id,p){Object.assign(HANDOVERS.find(x=>x.id===id),p);render()},
+    async deleteHandover(id){HANDOVERS=HANDOVERS.filter(x=>x.id!==id);render()},
   };
 }
 const Store=DEMO?demoStore():fbStore();
@@ -359,7 +362,7 @@ function stDelta(b,a){b=b||{};a=a||{};const o={cages:{},litters:{},keys:{}};let 
   [['cages','id'],['litters','key']].forEach(([f,k])=>{const B=by(b[f],k),A=by(a[f],k);new Set([...Object.keys(B),...Object.keys(A)]).forEach(id=>{if(!same(B[id],A[id])){o[f][id]={b:B[id]??null,a:A[id]??null};n++}})});
   new Set([...Object.keys(b),...Object.keys(a)]).forEach(k=>{if(k!=='cages'&&k!=='litters'&&!same(b[k],a[k])){o.keys[k]={b:b[k]??null,a:a[k]??null};n++}});
   return n?o:null}
-const KEYL={ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸'};
+const KEYL={dutyNotes:'당번 메모',ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸'};
 const CFL={name:'이름',notes:'메모',note:'메모',indM:'개체 표시',indF:'개체 표시',purpose:'용도',dad:'아빠',litter:'litter',line:'종류'};
 const csS=c=>`♂${c.m||0}♀${c.f||0}${c.pups?' 새끼'+pupS(c.pups):''}${c.mate?` Mating(♂${c.mate.n} ${fd(c.mate.start)})`:''}${c.wait?' 출산 대기 '+fd(c.wait):''}`;
 function deltaText(x){if(!x)return '';if(x.big)return x.text||'';const t=[];
@@ -536,7 +539,8 @@ function taskList(){
       const due=addD(c.pups.born,b);add({k:'wean',key:'wn:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'암수분리',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · D${p} (5주령 ${md(due)})`});
       if(!hasBirthRec(c))add({k:'norec',key:'nr:'+c.id+':'+c.pups.litter,c,due:T,redAfter:addD(T,-1),t:'출산 기록 없음',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · 기록 탭에 출산이 없음 → cage 열어서 확인`})}
   });
-  const hx=HANDOVERS[0];if(hx&&!hx.read)add({k:'ho',key:'ho:'+hx.id,cage:'인수인계',due:T,redAfter:T,t:'인수인계 확인',sub:`${hx.from} → ${hx.to}`,ho:hx});
+  NOTES().filter(n=>!n.done&&n.due).forEach(n=>{const c=n.cage&&S.cages.find(x=>x.id===n.cage);add({k:'note',key:'nt:'+n.id,cage:n.cage||'당번',c:c||null,due:n.due,redAfter:n.due,t:'당번 메모',sub:`${n.text} · ${n.by||''}`,note:n})});
+  const hx=ME.name&&hoTo([ME.name]).find(x=>!x.read);if(hx)add({k:'ho',key:'ho:'+hx.id,cage:'인수인계',due:T,redAfter:T,t:'인수인계 확인',sub:`${hx.from} → ${hx.to}`,ho:hx});
   const t=new Date(),mk=ymd(t).slice(0,7);if(t.getDate()>=25&&!(S.reportDone||[]).includes(mk))add({k:'report',key:'rp:'+mk,cage:'보고',due:T,redAfter:T,t:'월말 현황조사',sub:`${t.getMonth()+1}월 일반 mouse 마리수 · cage 세기`});
   const ord=x=>x.c?x.c.id:'';o.sort((a,b)=>(b.late-a.late)||a.due.localeCompare(b.due)||ord(a).localeCompare(ord(b),'ko',{numeric:true}));up.sort((a,b)=>a.due.localeCompare(b.due));
   return {o,up}}
@@ -562,6 +566,7 @@ function renderToday(){
         <div class="row"><input class="by" data-tk="${K}" data-f="by" value="${esc(tdv(x.key,'by',pairOn(tdv(x.key,'date',T))))}" placeholder="누가" aria-label="누가" style="flex:1;min-width:0"><button class="big pri" data-do="ntbc" data-tk="${K}">교체함</button></div>`;
     if(x.k==='ho')return `<div class="x" style="white-space:pre-wrap">${esc(x.ho.text)}</div>${x.ho.to.includes(ME.name)||isAdmin()?`<div class="row"><button class="big pri" data-do="hoRead" data-tk="${K}">확인</button></div>`:''}`;
     if(x.k==='report')return `<div class="row"><button class="big pri" data-do="report" data-tk="${K}">현황조사표</button></div>`;
+    if(x.k==='note')return `${x.c?'':`<div style="font-size:15px;font-weight:700">${esc(x.note.text)}</div>`}<div class="row"><button class="big pri" data-do="noteDone" data-tk="${K}">했음</button>${x.c?`<button class="big" data-do="open" data-tk="${K}">cage 열기</button>`:''}</div>`;
     if(x.k==='norec')return `<div class="row"><button class="big pri" data-do="open" data-tk="${K}">cage 열기</button></div>`;
     return ''};
   const row=x=>`<div class="tdi${x.late?' late':''}"><div class="k">${esc(x.t)}${x.late?` · ${days(x.redAfter)}일 지남`:''}</div>
@@ -587,6 +592,7 @@ async function taskDo(x,a){if(!x)return;const T=todayS(),V=TD[x.key]||{},D=V.dat
   if(a==='recount')return done(await doOp({op:'census',cage:id,pups:+tdv(x.key,'n',x.c.pups.n),date:D,text:`D${days(x.c.pups.born)} 다시 세기`},x.c.pups.born,'출산일'));
   if(a==='ntbc')return done(await doOp({op:'ntbc',date:D,scope:V.scope||'전체',by:(V.by??pairOn(D)).trim()||ME.nick}));
   if(a==='snooze')return done(await commit(st=>{const z={};Object.entries(st.snooze||{}).forEach(([k,v])=>{if(v===T)z[k]=v});z[x.key]=T;st.snooze=z},[{cage:id||x.cage,date:T,type:x.t,text:x.k==='birth'?'아직 출산 안 함 · 내일 다시':'아직 · 내일 다시'}]));
+  if(a==='noteDone')return done(await commit(st=>{noteDone(st,x.note.id)},[{cage:x.note.cage||'당번',type:'당번 메모 했음',text:x.note.text}]));
   if(a==='wean')return openCage(id,'wean');
   if(a==='open')return openCage(id);
   if(a==='report')return reportForm();
@@ -596,6 +602,27 @@ async function taskDo(x,a){if(!x)return;const T=todayS(),V=TD[x.key]||{},D=V.dat
 async function doOp(o,min,minLab){if(min&&o.date<min){toast(`${minLab} ${fd(min)}보다 앞설 수 없어요`);return false}
   const P=planOps([o]);if(P.bad){toast(P.rows[0].line);return false}
   return commit(st=>{OPS[o.op](st,{...o})},P.rows.filter(r=>r.ev).map(r=>r.ev))}
+
+/* ===== 당번 메모 · 인수인계 ===== */
+const curW=()=>sched(2)[0], nextW=()=>sched(2)[1];
+const pairJ=p=>p.join(' · ');
+const HOS=()=>HANDOVERS.filter(x=>!x.moved);
+/* 이 당번(pair)이 받은 인수인계: to에 둘 중 한 명이라도 들어간 것, 최근 것부터 */
+const hoTo=pair=>HOS().filter(x=>pair.some(n=>n&&String(x.to||'').includes(n)));
+const NOTES=(st=S)=>st.dutyNotes||[];
+const noteS=n=>`${n.text}${n.due?` (${md(n.due)})`:''}${n.cage?` · ${n.cage}`:''}`;
+const newId=()=>'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+function noteAdd(st,o){const t=String(o.text||'').trim();if(!t)throw new Error('text 필요');
+  if(o.due&&!/^\d{4}-\d\d-\d\d$/.test(o.due))throw new Error('due는 YYYY-MM-DD');
+  if(o.cage&&!st.cages.some(c=>c.id===o.cage))throw new Error(o.cage+' 없음');
+  const n={id:o.id||newId(),text:t,due:o.due||'',cage:o.cage||'',done:false,by:o.by||ME.nick,t:nowS(),week:o.week||curW().week};
+  st.dutyNotes=[...NOTES(st),n];return n}
+function noteDone(st,id,on=true){const n=NOTES(st).find(x=>x.id===id);if(!n)throw new Error('메모 없음');
+  if(on){n.done=true;n.doneBy=ME.nick;n.doneAt=nowS()}else{n.done=false;delete n.doneBy;delete n.doneAt}return n}
+/* 인수인계 기본 from → to: 이번 당번 → 다음 당번. 내가 지난 당번이면 지난 → 이번 */
+function hoDefault(){const W=sched(3,-1),me=ME.name;
+  if(me&&W[0]&&W[0].pair.includes(me)&&!W[1].pair.includes(me))return {week:W[0].week,from:pairJ(W[0].pair),to:pairJ(W[1].pair)};
+  return {week:W[1].week,from:pairJ(W[1].pair),to:pairJ(W[2].pair)}}
 
 /* ===== 화면 ===== */
 function renderTop(){
@@ -607,13 +634,14 @@ function renderTop(){
     <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
-  /* 지난 당번이 남긴 가장 최근 인수인계: 확인해도 다음 인수인계 올 때까지 상단에 남음 */
-  const hx=HANDOVERS.find(x=>x.week<w.week)||HANDOVERS[0],hb=$('#hoTop');hb.hidden=!hx||(tab==='today'&&!hx.read);
+  /* 지금 당번이 받은 인수인계 중 가장 최근 것. 확인하면 띠는 사라지고 인수인계 탭에는 남음.
+     받는 사람은 오늘 할 일에 같은 항목이 있으니 그 탭에선 띠를 숨김 */
+  const hx=hoTo(w.pair).find(x=>!x.read),hb=$('#hoTop');hb.hidden=!hx||(tab==='today'&&String(hx.to).includes(ME.name));
   if(hx){const t=hx.ts?.toDate?hx.ts.toDate():null;
     hb.innerHTML=`<div class="h"><b>📋 인수인계</b><span class="dim">${esc(hx.from)} → ${esc(hx.to)}${t?` · ${fd(ymd(t))} ${t.toTimeString().slice(0,5)}`:''} · ${hx.read?`확인 ${esc(hx.readBy||'')}`:'<b style="color:var(--alert-ink)">미확인</b>'}</span>
       ${!hx.read&&hx.to.includes(ME.name)?`<button class="btn pri" id="hoRead">확인</button>`:''}<button class="btn" id="hoAll" style="margin-left:auto">전체 보기</button></div><div class="x">${esc(hx.text)}</div>`;
     if($('#hoRead'))$('#hoRead').onclick=()=>Store.updateHandover(hx.id,{read:true,readBy:ME.nick}).then(()=>logEv({cage:'인수인계',type:'인수인계 확인',text:`${hx.from} → ${hx.to}`})).catch(()=>toast('저장 실패'));
-    $('#hoAll').onclick=()=>go('handover')}
+    $('#hoAll').onclick=()=>go('handover')}else hb.innerHTML='';
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
   const st=LINES().map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
   const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0),gs=f=>G.reduce((x,g)=>x+(+g[f]||0),0);
@@ -680,22 +708,73 @@ function renderLog(){
       $('#brY').onclick=async()=>{if(await commit(st=>{Object.keys(st).forEach(k=>delete st[k]);Object.assign(st,clone(b.main))},[{cage:'백업',type:'되돌리기',text:`${b.id} 상태로 · ${deltaText(stDelta(S,b.main)).slice(0,300)||'바뀐 것 없음'}`}]))toast('되돌림')}})};
 }
 function renderHandover(){
-  const [w,n]=sched(), evs=EVENTS.filter(e=>e.date>=w.week), N=ntbc();
-  $('#view').innerHTML=`<div class="ho">
-   <section><h4>✍️ ${n.pair.join(' · ')}에게 남기기</h4>
-    <textarea id="hoT" aria-label="특이사항" placeholder="특이사항"></textarea>
-    <div class="row" style="margin:8px 0"><label for="hoA">NTBC aliquot</label><input id="hoA" placeholder="남은 vial" style="width:90px"><label><input type="checkbox" id="hoL"> LMO 작성 완료</label></div>
-    <button class="btn pri" id="hoS" ${canEdit()?'':'disabled'}>보내기</button>
-    <h4 style="margin-top:16px">받은 · 보낸 인수인계</h4>
-    ${HANDOVERS.map(x=>`<p style="margin:8px 0 0"><span class="dim">${md(x.week)} ${esc(x.from)} → ${esc(x.to)} · 작성 ${esc(x.by||'')}${x.ts?.toDate?' '+fd(ymd(x.ts.toDate()))+' '+x.ts.toDate().toTimeString().slice(0,5):''} · ${x.read?`확인 ${esc(x.readBy||'')}`:'<b>미확인</b>'}</span><br>${esc(x.text)}${!x.read&&x.to.includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
+  const w=curW(),n=nextW(),evs=EVENTS.filter(e=>e.date>=w.week),N=ntbc(),ed=canEdit();
+  const mine=NOTES().filter(x=>x.week===w.week).sort((a,b)=>(a.done-b.done)||String(a.due||'9').localeCompare(String(b.due||'9'))),
+    old=NOTES().filter(x=>x.week<w.week&&!x.done);
+  const nRow=x=>`<div class="wl" data-nrow="${x.id}" style="display:flex;gap:8px;align-items:center${x.done?';opacity:.6':''}">
+    <div style="flex:1;min-width:0"><div${x.done?' style="text-decoration:line-through"':''}>${esc(x.text)}</div><div class="dim">${x.due?`${md(x.due)}${!x.done&&x.due<=todayS()?' <b style="color:var(--alert-ink)">오늘 할 일</b>':''} · `:''}${x.cage?esc(x.cage)+' · ':''}${esc(x.by||'')}${x.done?` · ✓ ${esc(x.doneBy||'')}`:''}</div></div>
+    ${ed?`<button class="btn${x.done?'':' pri'}" data-ndone="${x.id}" style="min-height:40px">${x.done?'되살리기':'했음'}</button><button class="btn" data-nedit="${x.id}" style="min-height:40px">수정</button>`:''}</div>`;
+  const cageOpts=v=>`<option value="">cage 없음</option>${S.cages.filter(shown).map(c=>`<option value="${esc(c.id)}" ${c.id===v?'selected':''}>${esc(c.id)} · ${esc(labS(c))}</option>`).join('')}`;
+  $('#view').innerHTML=`<section class="frm" style="background:var(--peach);color:var(--peach-ink)"><b style="font-size:15px">📝 이번 당번 메모 · ${esc(pairJ(w.pair))} <span class="dim" style="color:inherit">${rng(w)}</span></b>
+    <div class="dim" style="color:inherit">당번끼리 보는 할 일. 날짜를 넣으면 그날부터 오늘 할 일에 뜸. 인수인계 쓸 때 체크 안 된 건 초안으로 들어감</div>
+    ${mine.map(nRow).join('')||'<div class="dim">아직 없음</div>'}
+    ${old.length?`<details><summary class="dim more"><span class="o">▸ 지난 당번 메모 체크 안 됨 ${old.length}</span><span class="c">▾ 접기</span></summary>${old.map(nRow).join('')}</details>`:''}
+    ${ed?`<div class="row"><input id="nT" placeholder="예: FAH 2-B 11/20 출산 확인" style="flex:1;min-width:0;min-height:44px"></div>
+    <div class="row"><input type="date" id="nDue" aria-label="볼 날짜" style="min-height:44px"><select id="nC" aria-label="cage" style="flex:1;min-width:0;min-height:44px">${cageOpts('')}</select><button class="btn pri" id="nAdd" style="min-height:44px">추가</button></div>`:''}</section>
+   <div class="ho">
+   <section><div class="row" style="justify-content:space-between"><h4 style="margin:0">📋 인수인계</h4>${ed?'<button class="btn pri" id="hoW" style="min-height:40px">인수인계 쓰기</button>':''}</div>
+    <div class="dim" style="margin:4px 0 8px">당번 끝날 때 한 번 · ${esc(pairJ(w.pair))} → ${esc(pairJ(n.pair))}</div>
+    ${HOS().map(x=>`<p style="margin:8px 0 0"><span class="dim">${x.week?md(x.week)+' ':''}<b>${esc(x.from)} → ${esc(x.to)}</b> · 작성 ${esc(x.by||'')}${x.ts?.toDate?' '+fd(ymd(x.ts.toDate()))+' '+x.ts.toDate().toTimeString().slice(0,5):''} · ${x.read?`확인 ${esc(x.readBy||'')}`:'<b>미확인</b>'}</span><br><span style="white-space:pre-wrap">${esc(x.text)}</span>${!x.read&&ME.name&&String(x.to).includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}${ed?` <button class="evx" data-hoed="${x.id}">수정</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
    </section>
-   <section><h4>이번 주 기록</h4>${weekLog(evs)}
+   <section><h4>이번 당번 기록</h4>${weekLog(evs)}
     <h4>다음 주 할 일</h4><ul>${todos().map(t=>`<li>${esc(t.t)}</li>`).join('')||'<li>없음</li>'}</ul>
     <h4>음수 추가 교체</h4><ul><li>${N.bigIds.join(', ')}</li></ul></section>
    </div>`;
-  $('#hoS').onclick=async()=>{const text=[$('#hoT').value.trim(),$('#hoA').value&&'aliquot '+$('#hoA').value,$('#hoL').checked&&'LMO 작성 완료'].filter(Boolean).join(' / ')||'특이사항 없음';
-    try{await Store.addHandover({week:w.week,from:w.pair.join(' · '),to:n.pair.join(' · '),text,read:false,by:ME.nick});logEv({cage:'인수인계',type:'인수인계',text:`${w.pair.join('·')} → ${n.pair.join('·')} · ${text}`});toast('보냄')}catch(e){toast('저장 실패')}};
+  if($('#nAdd'))$('#nAdd').onclick=async()=>{const o={text:$('#nT').value.trim(),due:$('#nDue').value,cage:$('#nC').value};if(!o.text){toast('메모를 써주세요');return}
+    await commit(st=>{noteAdd(st,o)},[{cage:o.cage||'당번',type:'당번 메모',text:noteS(o)}])};
+  $$('[data-ndone]').forEach(b=>b.onclick=async()=>{const x=NOTES().find(y=>y.id===b.dataset.ndone);if(!x)return;
+    await commit(st=>{noteDone(st,x.id,!x.done)},[{cage:x.cage||'당번',type:x.done?'당번 메모 되살림':'당번 메모 했음',text:x.text}])});
+  $$('[data-nedit]').forEach(b=>b.onclick=()=>{const x=NOTES().find(y=>y.id===b.dataset.nedit),r=$(`[data-nrow="${CSS.escape(x.id)}"]`);
+    r.style.flexWrap='wrap';r.innerHTML=`<input class="ne-t" value="${esc(x.text)}" style="flex:1 1 100%;min-height:40px"><input type="date" class="ne-d" value="${esc(x.due||'')}"><select class="ne-c" style="flex:1;min-width:0">${cageOpts(x.cage)}</select><button class="btn pri ne-s">저장</button><button class="btn ne-x" style="color:var(--alert-ink)">지우기</button>`;
+    r.querySelector('.ne-s').onclick=async()=>{const v={text:r.querySelector('.ne-t').value.trim(),due:r.querySelector('.ne-d').value,cage:r.querySelector('.ne-c').value};if(!v.text)return;
+      await commit(st=>{const y=NOTES(st).find(z=>z.id===x.id);if(!y)throw new Error('메모 없음');Object.assign(y,v,{ed:nowS(),edBy:ME.nick})},[{cage:v.cage||'당번',type:'당번 메모 수정',text:`${noteS(x)} → ${noteS(v)}`}])};
+    r.querySelector('.ne-x').onclick=async()=>{await commit(st=>{st.dutyNotes=NOTES(st).filter(z=>z.id!==x.id)},[{cage:x.cage||'당번',type:'당번 메모 지움',text:noteS(x)}])}});
+  if($('#hoW'))$('#hoW').onclick=hoForm;
+  $$('[data-hoed]').forEach(b=>b.onclick=()=>hoEditForm(b.dataset.hoed));
   $$('[data-read]').forEach(b=>b.onclick=()=>Store.updateHandover(b.dataset.read,{read:true,readBy:ME.nick}).then(()=>logEv({cage:'인수인계',type:'인수인계 확인',text:(x=>x?`${x.from} → ${x.to}`:'')(HANDOVERS.find(x=>x.id===b.dataset.read))})));
+}
+/* 인수인계 쓰기: from → to 크게, 체크 안 된 당번 메모를 초안으로 */
+function hoForm(){
+  CUR=null;const D=hoDefault(),left=NOTES().filter(x=>!x.done&&x.week<=D.week);
+  $('#dT').textContent='인수인계 쓰기';
+  $('#dB').innerHTML=`<div class="frm">
+   <div style="font-size:19px;font-weight:800;text-align:center;padding:6px 0"><span id="hoF">${esc(D.from)}</span> → <span id="hoTo">${esc(D.to)}</span></div>
+   <label>보내는 당번 <input id="hoFi" value="${esc(D.from)}" style="flex:1;min-width:0"></label>
+   <label>받는 당번 <input id="hoToi" value="${esc(D.to)}" style="flex:1;min-width:0"></label>
+   <div class="dim">당번 기간 ${md(D.week)}~ · 기본은 이번 당번 → 다음 당번 (바꿀 수 있음)</div>
+   <textarea id="hoT" style="min-height:160px" aria-label="인수인계">${esc(left.map(x=>'- '+noteS(x)).join('\n'))}</textarea>
+   ${left.length?`<div class="dim">체크 안 된 당번 메모 ${left.length}개를 초안으로 넣음</div>`:''}
+   <div class="row"><label for="hoA">NTBC aliquot</label><input id="hoA" placeholder="남은 vial" style="width:90px"><label><input type="checkbox" id="hoL"> LMO 작성 완료</label></div>
+   <div class="row"><button class="btn pri" id="hoS" style="min-height:44px">보내기</button></div></div>`;
+  const sync=()=>{$('#hoF').textContent=$('#hoFi').value;$('#hoTo').textContent=$('#hoToi').value};$('#hoFi').oninput=sync;$('#hoToi').oninput=sync;
+  $('#hoS').onclick=async()=>{const from=$('#hoFi').value.trim(),to=$('#hoToi').value.trim();if(!from||!to){toast('보내는·받는 당번을 넣어주세요');return}
+    const text=[$('#hoT').value.trim(),$('#hoA').value&&'aliquot '+$('#hoA').value,$('#hoL').checked&&'LMO 작성 완료'].filter(Boolean).join(' / ')||'특이사항 없음';
+    try{await Store.addHandover({week:D.week,from,to,text,read:false,by:ME.nick});logEv({cage:'인수인계',type:'인수인계',text:`${from} → ${to} · ${text}`});toast('보냄');$('#dlg').close()}catch(e){toast('저장 실패')}};
+  $('#dlg').showModal();
+}
+/* 인수인계 한 건 고치기 (from · to · week · 내용), 당번 메모로 옮기기 */
+function hoEditForm(id){
+  const x=HANDOVERS.find(y=>y.id===id);if(!x||!canEdit())return;CUR=null;$('#dT').textContent='인수인계 수정';
+  $('#dB').innerHTML=`<div class="frm"><div class="dim">작성 ${esc(x.by||'')} · ${x.read?'확인 '+esc(x.readBy||''):'미확인'}</div>
+   <label>보내는 당번 <input id="heF" value="${esc(x.from||'')}" style="flex:1;min-width:0"></label>
+   <label>받는 당번 <input id="heT" value="${esc(x.to||'')}" style="flex:1;min-width:0"></label>
+   <label>당번 기간 시작 <input type="date" id="heW" value="${esc(x.week||'')}"></label>
+   <textarea id="heX" style="min-height:120px">${esc(x.text||'')}</textarea>
+   <div class="row"><button class="btn pri" id="heS">저장</button><button class="btn" id="heN">당번 메모로 옮기기</button></div></div>`;
+  $('#heS').onclick=async()=>{const r=await applyOps([{op:'handoverEdit',id,from:$('#heF').value.trim(),to:$('#heT').value.trim(),week:$('#heW').value,text:$('#heX').value}]);
+    if(r.ok){toast('인수인계 수정됨');$('#dlg').close()}else toast(r.rows.find(z=>!z.ok)?.line||'저장 안 됨')};
+  $('#heN').onclick=async()=>{const r=await applyOps([{op:'handoverToNote',id}]);if(r.ok)$('#dlg').close();else toast(r.rows.find(z=>!z.ok)?.line||'저장 안 됨')};
+  $('#dlg').showModal();
 }
 /* 프로토콜 ver3 (2026.10.29 YW) 요약 */
 function renderRules(){
@@ -1391,6 +1470,9 @@ function snapshot(){
       const t=indS(c);if(t)o.ind=t;const ns=lastN(c);if(ns.length)o.notes=ns;return o}),
     litters:S.litters.map(l=>[l.key,l.dob,l.mom||'',l.dad||'',l.ended?'종료':'']),
     general:(S.general||[]).map(g=>({no:g.no,owner:g.owner,strain:g.strain,dob:g.dob,m:+g.m||0,f:+g.f||0})),
+    handovers:HOS().map(x=>({id:x.id,week:x.week||'',from:x.from||'',to:x.to||'',by:x.by||'',read:!!x.read,text:String(x.text||'').slice(0,80)})),
+    dutyNotes:NOTES().filter(x=>!x.done||x.week===curW().week).map(x=>({id:x.id,text:x.text,due:x.due||'',cage:x.cage||'',done:!!x.done,by:x.by||'',week:x.week})),
+    duty:{now:curW(),next:nextW()},
     events:EVENTS.slice(0,120).map(e=>[e.id,e.date,e.cage,e.type,e.text||'',e.by||'',undoneOf(e)?'되돌림됨':''])};
 }
 /* ops 하나씩 st에 적용하고 남길 기록을 돌려줌. 틀린 op는 Error */
@@ -1435,11 +1517,21 @@ const OPS={
   litter:(st,o)=>{const l=lit(o.litter,st);if(!l)throw new Error(o.litter+' 없음');const ch=[];['dob','mom','dad'].forEach(k=>{if(o[k]!==undefined&&o[k]!==l[k]){ch.push(`${k} ${l[k]||'-'} → ${o[k]||'-'}`);l[k]=o[k]}});
     if(o.ended!==undefined&&!!o.ended!==!!l.ended){ch.push(o.ended?'종료':'종료 해제');l.ended=!!o.ended}return {cage:o.litter,type:'정보 수정',text:ch.join(' · ')||'바뀐 것 없음'}},
   log:(st,o)=>({type:o.type||'기록',text:o.text||''}),
+  dutyNote:(st,o)=>{const n=noteAdd(st,{text:o.text,due:o.due,cage:o.cage});return {cage:n.cage||'당번',type:'당번 메모',text:noteS(n)}},
+  dutyNoteDone:(st,o)=>{const m=String(o.match||'').trim();if(!m)throw new Error('match 필요');const L=NOTES(st).filter(x=>!x.done&&x.text.includes(m));
+    if(!L.length)throw new Error(`'${m}' 들어간 체크 안 된 당번 메모 없음`);if(L.length>1)throw new Error(`${L.length}개가 맞음 · match를 더 길게`);noteDone(st,L[0].id);return {cage:L[0].cage||'당번',type:'당번 메모 했음',text:L[0].text}},
+  /* 인수인계를 당번 메모로: 메모 추가 + (저장 뒤) 원래 인수인계 지움 */
+  handoverToNote:(st,o)=>{const h=HANDOVERS.find(x=>x.id===o.id&&!x.moved);if(!h)throw new Error('인수인계 id 없음');
+    noteAdd(st,{text:h.text,week:h.week||curW().week,by:h.by});return {cage:'인수인계',type:'인수인계 → 당번 메모',text:`${h.from} → ${h.to} · ${h.text}`}},
 };
-const OP_EV=['delEvent','editEvent'];
+const OP_EV=['delEvent','editEvent','handoverEdit'];
+const HO_F=['from','to','week','text'];
 function planOps(ops){
   const st=clone(S),rows=[];
   ops.forEach((o,i)=>{try{
+    if(o.op==='handoverEdit'){const h=HANDOVERS.find(x=>x.id===o.id&&!x.moved);if(!h)throw new Error('인수인계 id 없음');
+      if(o.week&&!/^\d{4}-\d\d-\d\d$/.test(o.week))throw new Error('week는 YYYY-MM-DD');const ch=HO_F.filter(k=>o[k]!==undefined&&o[k]!==(h[k]||''));
+      rows.push({i,o,ok:1,line:`인수인계 수정 · ${h.from} → ${h.to} · ${ch.map(k=>k==='text'?'내용 바뀜':`${k} ${h[k]||'-'} → ${o[k]}`).join(' · ')||'바뀐 것 없음'}`});return}
     if(OP_EV.includes(o.op)){const e=EVENTS.find(x=>x.id===o.id);if(!e)throw new Error('기록 id 없음');
       rows.push({i,o,ok:1,line:`${o.op==='delEvent'?'기록 삭제':'기록 수정'} · ${evS(e)}${o.op==='editEvent'?' → '+['date','cage','type','text'].filter(k=>o[k]!==undefined).map(k=>`${k}:${o[k]}`).join(' '):''}`});return}
     const f=OPS[o.op];if(!f||o.op[0]==='_')throw new Error('모르는 op: '+o.op);
@@ -1452,7 +1544,11 @@ async function applyOps(ops,note){
   const P=planOps(ops);if(P.bad)return {ok:false,rows:P.rows};
   const stOps=ops.filter(o=>!OP_EV.includes(o.op)),evs=P.rows.filter(r=>r.ev).map(r=>({...r.ev,via:'붙여넣기'}));
   let undo=null;if(stOps.length){const ok=await commit(st=>{stOps.forEach(o=>OPS[o.op](st,{...o,date:o.date||todayS()}))},evs);if(!ok)return {ok:false,rows:P.rows};undo=typeof ok==='string'?ok:null}
-  for(const o of ops.filter(o=>OP_EV.includes(o.op))){const e=EVENTS.find(x=>x.id===o.id);if(!e)continue;
+  for(const o of ops.filter(o=>o.op==='handoverToNote'))await Store.deleteHandover(o.id).catch(e=>console.warn(e));
+  for(const o of ops.filter(o=>o.op==='handoverEdit')){const h=HANDOVERS.find(x=>x.id===o.id);if(!h)continue;const p={},ch=[];
+    HO_F.forEach(k=>{if(o[k]!==undefined&&o[k]!==(h[k]||'')){p[k]=o[k];ch.push(k==='text'?`내용 ${String(h.text||'').slice(0,40)} → ${String(o.text).slice(0,40)}`:`${k} ${h[k]||'-'} → ${o[k]}`)}});
+    if(!ch.length)continue;p.ed=nowS();p.edBy=ME.nick;const fr=h.from,tt=h.to;try{await Store.updateHandover(h.id,p);logEv({cage:'인수인계',type:'인수인계 수정',text:`[${fr} → ${tt}] ${ch.join(' · ')}${o.why?' · '+o.why:''}`})}catch(e){toast('인수인계 수정 실패');return {ok:false,rows:P.rows}}}
+  for(const o of ops.filter(o=>OP_EV.includes(o.op)&&o.op!=='handoverEdit')){const e=EVENTS.find(x=>x.id===o.id);if(!e)continue;
     if(o.op==='delEvent')await editEv(e.id,null,null,{cage:e.cage,type:'기록 삭제',text:`${evS(e)}${e.by?' · 입력 '+e.by:''}${o.why?' · '+o.why:''}`});
     else{const p={ed:nowS(),edBy:ME.nick};['date','cage','type','text'].forEach(k=>{if(o[k]!==undefined)p[k]=o[k]});if(!e.orig)p.orig={date:e.date,cage:e.cage,type:e.type,text:e.text||''};
       await editEv(e.id,p,null,{cage:e.cage,type:'기록 수정',text:`[${evS(e)}] ${Object.keys(p).filter(k=>!['ed','edBy','orig'].includes(k)).map(k=>`${k} ${e[k]||'-'} → ${p[k]}`).join(' · ')}${o.why?' · '+o.why:''}`})}}
@@ -1627,7 +1723,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117092416';
+let NEWV=0;const VER='20261117161348';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
