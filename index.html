@@ -623,8 +623,8 @@ function renderTop(){
   const wd=new Date().getDay(), [w,n,n2]=sched(8,(wd===0||wd===6)&&days(S.dutyStart)%DUTY>=DUTY-2?1:0), mine=w.pair.includes(ME.name), N=ntbc();
   const thisWeek=(S.ntbcLog||[]).filter(x=>x.date>=w.week);
   $('#duty').innerHTML=`<div><div>${rng(w)} <b>${w.pair.join(' · ')}</b>${mine?' 🐾 내 차례':''}</div>
-    <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}${thisWeek.length?` · 교체 ${thisWeek.map(x=>md(x.date)).join(', ')}`:''}</div>
-    <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}</div></div>
+    <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}</div>
+    <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}${(p=>p.length?` · 4마리↑ ${p.map(x=>md(x.date)).join(', ')}`:'')(thisWeek.filter(x=>x.scope!=='전체'))}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
   /* 지금 당번이 받은 인수인계 중 가장 최근 것. 확인하면 띠는 사라지고 인수인계 탭에는 남음.
@@ -1715,7 +1715,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117162634';
+let NEWV=0;const VER='20261117234336';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
