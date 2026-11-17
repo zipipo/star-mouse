@@ -515,7 +515,7 @@ const dupAlpha=c=>{const k=labS(c);return S.cages.filter(x=>x.line===c.line&&sho
 const alpH=c=>{const a=dupAlpha(c);return !a?'':c.labW===a?`<span class="alp" style="font-size:12px;font-weight:700;opacity:.7">라벨 ${esc(a)}</span>`:`<span class="alp">라벨에 ${esc(a)} 적기</span>`};
 /* cage 창: 같은 DOB cage가 여럿이면 라벨에 알파벳 적고 [적었음] */
 const labBox=c=>{const a=dupAlpha(c);if(!a)return '';return c.labW===a?`<div class="dim" style="margin-top:4px">라벨에 ${esc(a)} 적음 ✓</div>`:
-  `<div class="tip row" style="margin-top:6px;justify-content:space-between"><span>같은 DOB cage가 여럿 → 라벨에 <b style="font-size:16px">${esc(a)}</b> 적기</span>${canEdit()?`<button class="btn pri" id="labW" style="min-height:40px">적었음</button>`:''}</div>`};
+  `<div class="row" style="margin-top:6px;justify-content:space-between;background:var(--blue);border-radius:8px;padding:6px 10px"><span>라벨에 <b style="font-size:16px">${esc(a)}</b> 적기</span>${canEdit()?`<button class="btn pri" id="labW" style="min-height:40px">적었음</button>`:''}</div>`};
 /* DOB 검색: 26.04.06 · 260406 · 0406 · 4/6 · 4.6. 글자가 있으면 cage id·이름 검색 */
 function parseQ(q){q=(q||'').trim();if(!q)return null;if(/[A-Za-z가-힣]/.test(q))return {txt:q.toLowerCase()};
   const p=q.split(/\D+/).filter(Boolean);let y=null,m,d;
@@ -537,7 +537,7 @@ function taskList(){
     if(c.pups){const p=days(c.pups.born),[a,b]=WEANL(c.line);
       if((!c.pups.cnt||c.pups.unk)&&p<a){const due=addD(c.pups.born,NO_TOUCH);add({k:'recount',key:'rc:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'새끼 다시 세기',sub:`출산 ${md(c.pups.born)} · D${p} · 지금 ${pupS(c.pups)}마리${c.pups.unk?' (미확인)':''}`})}
       const due=addD(c.pups.born,b);add({k:'wean',key:'wn:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'암수분리',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · D${p} (5주령 ${md(due)})`});
-      if(!hasBirthRec(c))add({k:'norec',key:'nr:'+c.id+':'+c.pups.litter,c,due:T,redAfter:addD(T,-1),t:'출산 기록 없음',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · 기록 탭에 출산이 없음 → cage 열어서 확인`})}
+      if(!hasBirthRec(c))add({k:'norec',key:'nr:'+c.id+':'+c.pups.litter,c,due:T,redAfter:addD(T,-1),t:'출산 기록 없음',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)}`})}
   });
   NOTES().filter(n=>!n.done&&n.due).forEach(n=>{const c=n.cage&&S.cages.find(x=>x.id===n.cage);add({k:'note',key:'nt:'+n.id,cage:n.cage||'당번',c:c||null,due:n.due,redAfter:n.due,t:'당번 메모',sub:`${n.text} · ${n.by||''}`,note:n})});
   const hx=ME.name&&hoTo([ME.name]).find(x=>!x.read);if(hx)add({k:'ho',key:'ho:'+hx.id,cage:'인수인계',due:T,redAfter:T,t:'인수인계 확인',sub:`${hx.from} → ${hx.to}`,ho:hx});
@@ -716,14 +716,14 @@ function renderHandover(){
     ${ed?`<button class="btn${x.done?'':' pri'}" data-ndone="${x.id}" style="min-height:40px">${x.done?'되살리기':'했음'}</button><button class="btn" data-nedit="${x.id}" style="min-height:40px">수정</button>`:''}</div>`;
   const cageOpts=v=>`<option value="">cage 없음</option>${S.cages.filter(shown).map(c=>`<option value="${esc(c.id)}" ${c.id===v?'selected':''}>${esc(c.id)} · ${esc(labS(c))}</option>`).join('')}`;
   $('#view').innerHTML=`<section class="frm" style="background:var(--peach);color:var(--peach-ink)"><b style="font-size:15px">📝 이번 당번 메모 · ${esc(pairJ(w.pair))} <span class="dim" style="color:inherit">${rng(w)}</span></b>
-    <div class="dim" style="color:inherit">당번끼리 보는 할 일. 날짜를 넣으면 그날부터 오늘 할 일에 뜸. 인수인계 쓸 때 체크 안 된 건 초안으로 들어감</div>
+    
     ${mine.map(nRow).join('')||'<div class="dim">아직 없음</div>'}
     ${old.length?`<details><summary class="dim more"><span class="o">▸ 지난 당번 메모 체크 안 됨 ${old.length}</span><span class="c">▾ 접기</span></summary>${old.map(nRow).join('')}</details>`:''}
     ${ed?`<div class="row"><input id="nT" placeholder="예: FAH 2-B 11/20 출산 확인" style="flex:1;min-width:0;min-height:44px"></div>
     <div class="row"><input type="date" id="nDue" aria-label="볼 날짜" style="min-height:44px"><select id="nC" aria-label="cage" style="flex:1;min-width:0;min-height:44px">${cageOpts('')}</select><button class="btn pri" id="nAdd" style="min-height:44px">추가</button></div>`:''}</section>
    <div class="ho">
    <section><div class="row" style="justify-content:space-between"><h4 style="margin:0">📋 인수인계</h4>${ed?'<button class="btn pri" id="hoW" style="min-height:40px">인수인계 쓰기</button>':''}</div>
-    <div class="dim" style="margin:4px 0 8px">당번 끝날 때 한 번 · ${esc(pairJ(w.pair))} → ${esc(pairJ(n.pair))}</div>
+    
     ${HOS().map(x=>`<p style="margin:8px 0 0"><span class="dim">${x.week?md(x.week)+' ':''}<b>${esc(x.from)} → ${esc(x.to)}</b> · 작성 ${esc(x.by||'')}${x.ts?.toDate?' '+fd(ymd(x.ts.toDate()))+' '+x.ts.toDate().toTimeString().slice(0,5):''} · ${x.read?`확인 ${esc(x.readBy||'')}`:'<b>미확인</b>'}</span><br><span style="white-space:pre-wrap">${esc(x.text)}</span>${!x.read&&ME.name&&String(x.to).includes(ME.name)?` <button class="btn" data-read="${x.id}">확인</button>`:''}${ed?` <button class="evx" data-hoed="${x.id}">수정</button>`:''}</p>`).join('')||'<p class="dim" style="margin:4px 0">아직 없음</p>'}
    </section>
    <section><h4>이번 당번 기록</h4>${weekLog(evs)}
@@ -751,9 +751,9 @@ function hoForm(){
    <div style="font-size:19px;font-weight:800;text-align:center;padding:6px 0"><span id="hoF">${esc(D.from)}</span> → <span id="hoTo">${esc(D.to)}</span></div>
    <label>보내는 당번 <input id="hoFi" value="${esc(D.from)}" style="flex:1;min-width:0"></label>
    <label>받는 당번 <input id="hoToi" value="${esc(D.to)}" style="flex:1;min-width:0"></label>
-   <div class="dim">당번 기간 ${md(D.week)}~ · 기본은 이번 당번 → 다음 당번 (바꿀 수 있음)</div>
+   
    <textarea id="hoT" style="min-height:160px" aria-label="인수인계">${esc(left.map(x=>'- '+noteS(x)).join('\n'))}</textarea>
-   ${left.length?`<div class="dim">체크 안 된 당번 메모 ${left.length}개를 초안으로 넣음</div>`:''}
+   
    <div class="row"><label for="hoA">NTBC aliquot</label><input id="hoA" placeholder="남은 vial" style="width:90px"><label><input type="checkbox" id="hoL"> LMO 작성 완료</label></div>
    <div class="row"><button class="btn pri" id="hoS" style="min-height:44px">보내기</button></div></div>`;
   const sync=()=>{$('#hoF').textContent=$('#hoFi').value;$('#hoTo').textContent=$('#hoToi').value};$('#hoFi').oninput=sync;$('#hoToi').oninput=sync;
@@ -842,7 +842,7 @@ function evForm(id,back){
    <label>구분 <input id="eT" list="eTL" value="${esc(e.type)}" style="flex:1;min-width:0"><datalist id="eTL">${types.map(t=>`<option value="${esc(t)}">`).join('')}</datalist></label>
    <textarea id="eX" maxlength="400"></textarea>
    <label id="eSyncL" hidden><input type="checkbox" id="eSync" checked> <span id="eSyncT"></span>도 같이 바꾸기</label>
-   <div class="dim">기록만 바뀌어요. 마리수가 틀렸으면 cage에서 '실사'로 고쳐주세요.</div>
+   
    <div class="row"><button class="btn pri" id="eOk">저장</button><button class="btn" id="eDel">지우기</button>${(e.chg||EVENTS.some(x=>x.chg&&x.grp&&x.grp===e.grp))&&!undoneOf(e)?'<button class="btn" id="eUndo">이 저장 되돌리기</button>':''}<span id="eQ"></span></div></div>`;
   if($('#eUndo'))$('#eUndo').onclick=async()=>{if(await undoSave(e.id))$('#dlg').close()};
   $('#eX').value=e.text||'';
@@ -973,7 +973,7 @@ function actForm(c,a){
       $$('.mn').forEach(e=>e.oninput=()=>{rows[e.dataset.i].n=+e.value||0;chk()});
       $$('.ms').forEach(e=>e.onchange=()=>{rows[e.dataset.i].msrc=e.value;chk()});
       $$('.mfs').forEach(e=>e.onchange=()=>{rows[e.dataset.i].fsrc=e.value;draw()});chk()};
-    F.innerHTML=`<div class="frm"><div class="dim">${fromMale?'이 cage 수컷을 데려갈 암컷 cage 고르기':'이 cage 암컷에 넣을 수컷 cage 고르기'} · 숫자 칸에 마리수 (예: ♂2 × ♀2)</div><div id="mrows" style="display:flex;flex-direction:column;gap:6px"></div><div class="row"><button class="btn" id="mAdd">+ 메이팅 cage</button><span id="msum" class="dim"></span></div>${dateIn(todayS(),'합사한 날')}<div id="mwarn"></div><div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
+    F.innerHTML=`<div class="frm"><div class="dim">${fromMale?'이 cage 수컷을 데려갈 암컷 cage 고르기':'이 cage 암컷에 넣을 수컷 cage 고르기'}</div><div id="mrows" style="display:flex;flex-direction:column;gap:6px"></div><div class="row"><button class="btn" id="mAdd">+ 메이팅 cage</button><span id="msum" class="dim"></span></div>${dateIn(todayS(),'합사한 날')}<div id="mwarn"></div><div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
     draw();$('#fD').onchange=chk;
     $('#mAdd').onclick=()=>{if(!fromMale&&rows.reduce((a,r)=>a+r.f,0)>=c.f)return;if(fromMale&&rows.reduce((a,r)=>a+r.n,0)>=c.m)return;const l=rows[rows.length-1];rows.push({fsrc:l.fsrc,f:1,msrc:l.msrc,n:1});draw()};
     $('#fOk').onclick=async()=>{
@@ -994,7 +994,7 @@ function actForm(c,a){
   }
   if(a==='mateEnd'){
     h=`<div>♂${c.mate.n} → ${c.mate.from} · Mating ${fd(c.mate.start)} 시작</div>
-      <div class="tip">암컷은 1마리씩 분리가 원칙 (cage 많으면 2마리) · 출산 예정 암컷은 사육실 안쪽에</div>${c.f>2?warnH([`♀${c.f}마리 같이 있음 · 과밀하면 폐사 원인 → '이동 · 새 cage'로 나누기`]):''}`;
+      ${c.f>2?warnH([`♀${c.f}마리 같이 있음 · 과밀하면 폐사 원인 → '이동 · 새 cage'로 나누기`]):''}`;
     ok=async()=>{const D=pickD(c.mate.start,'Mating 시작일');if(!D)return;after(await commit(st=>{const c=C(st,id),s=C(st,c.mate.from),n=Math.min(c.mate.n,c.m);c.m-=n;s.m+=n;c.wait=c.mate.start;c.dad=s.litter;c.mate=null},
       [{cage:id,date:D,type:'수컷 빼기',text:`♂${c.mate.n} → ${c.mate.from}`}]))};
   }
@@ -1002,7 +1002,7 @@ function actForm(c,a){
   if(a==='birth'){
     const no=nextNo(c.line),st0=c.mate?c.mate.start:c.wait;
     h=`<div class="row">${num('fP','새끼')}<span>→ ${c.line} ${no}</span></div><label><input type="checkbox" id="fUnk"> 마릿수 미확인 (작아서 못 셈 · 숫자는 대략, 비워도 됨)</label>${c.mate?warnH(['아직 수컷이 같이 있음 · 출산 때 수컷이 식살할 수 있음']):''}
-      <div class="tip">출산 후 1~2주는 케이지 교체 금지 · 라벨지에 출산일 표시</div>`;
+      `;
     ok=async()=>{const n=v('fP'),unk=$('#fUnk').checked;if(!n&&!unk){toast('새끼 수를 넣거나 마릿수 미확인 체크');return}const D=pickD(st0,'Mating 시작일');if(!D)return;
       after(await commit(st=>{const c=C(st,id),no=nextNo(c.line,st);if(c.mate){const s=st.cages.find(x=>x.id===c.mate.from);if(s)c.dad=s.litter}
         st.litters.push({key:`${c.line} ${no}`,line:c.line,no:String(no),dob:D,mom:c.litter,dad:c.dad||null,ended:false});
@@ -1021,7 +1021,7 @@ function actForm(c,a){
   }
   if(a==='edit'){
     const l=lit(c.litter);
-    h=`<div class="dim">잘못 넣은 날짜나 부모를 고쳐요. 기록 한 줄은 아래 목록의 '수정'에서.</div>
+    h=`
       <label>DOB <input type="date" id="xDob" value="${l.dob}" max="${todayS()}"> <span class="dim">${esc(l.key)} 전체</span></label>
       <label>엄마 <input id="xMom" value="${esc(l.mom||'')}" style="flex:1;min-width:0"></label>
       <label>아빠 <input id="xDad" value="${esc(l.dad||'')}" style="flex:1;min-width:0"></label>
@@ -1054,7 +1054,7 @@ function actForm(c,a){
       $$('.wsx').forEach(e=>e.onchange=()=>{rows[e.dataset.i].sx=e.value;draw()});
       $$('.wn').forEach(e=>e.oninput=()=>{rows[e.dataset.i].n=+e.value||0;upd()});upd()};
     F.innerHTML=`<div class="frm"><div class="wr" id="wrows"></div><div class="row"><button class="btn" id="wAdd">+ cage</button><span id="wsum" class="dim"></span></div>${dateIn()}
-      <div class="tip">D${days(c.pups.born)} · 센터 규정 4주, 보통 5주령에 분리 · 크기가 작으면 더 두기 · 사육실 #11 LMO 관리대장 작성</div>${days(c.pups.born)<WEANL(c.line)[0]?warnH([`아직 D${days(c.pups.born)} · 4주 전`]):''}
+      ${days(c.pups.born)<WEANL(c.line)[0]?warnH([`아직 D${days(c.pups.born)} · 4주 전`]):''}
       <label><input type="checkbox" id="fL"> LMO 작성 완료</label><div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
     draw();$('#wAdd').onclick=()=>{rows.push({sx:'♀',n:0});draw()};
     $('#fOk').onclick=async()=>{const R=rows.filter(r=>r.n>0);if(!R.length)return;
@@ -1110,7 +1110,7 @@ function actForm(c,a){
       after(await commit(st=>{const x=C(st,id),y=flipSex(x,pk);Object.assign(x,{m:y.m,f:y.f,indM:y.indM,indF:y.indF});fixMate(x)},[{cage:id,date:D,type:'성별 수정',text:[r.text,`♂${c.m}♀${c.f} → ♂${r.m}♀${r.f}`,memo].filter(Boolean).join(' · ')}]))};
   }
   if(a==='census'){
-    h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div>${c.pups&&c.pups.unk?'<div class="tip">새끼 마릿수 미확인 → 센 숫자를 넣으면 확인됨으로 바뀜</div>':''}<input id="fMemo" placeholder="메모">`;
+    h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div>${c.pups&&c.pups.unk?'':''}<input id="fMemo" placeholder="메모">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;const D=pickD();if(!D)return;
       after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;delete c.pups.unk;c.pups.cnt=D;if(!p)c.pups=null}fixMate(c)},[{cage:id,date:D,type:'실사',text:`♂${c.m}♀${c.f}${c.pups?' 새끼'+pupS(c.pups):''} → ♂${m}♀${f}${c.pups?' 새끼'+p:''} ${memo}`.trim()}]))};
   }
@@ -1351,7 +1351,7 @@ function newCageForm(){
     $('#dB').innerHTML=`<div class="frm">
      <div class="row">${[...new Set([...LINES(),line])].map(x=>`<button class="chip" aria-pressed="${line===x}" data-nl="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" id="nLine">+ 종류</button><span id="nLineBox"></span></div>
      <div class="row"><b>용도</b>${['메이팅','실험','성별 분리','새로 반입'].map(x=>`<button class="chip" aria-pressed="${purpose===x}" data-np="${x}">${x}</button>`).join('')}</div>
-     <div class="dim">데려올 마우스 고르기 · 새 cage 번호 ${nid}</div>
+     <div class="dim">새 cage ${nid}</div>
      <div id="nrows" style="display:flex;flex-direction:column;gap:8px">${rows.map((r,i)=>`<div style="display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:10px;padding:8px"><select data-i="${i}" class="nsrc" aria-label="cage" style="width:100%">${a.map(x=>`<option value="${x.id}" ${x.id===r.src?'selected':''}>${cl(x)}</option>`).join('')}</select>
        <div class="row"><label><span class="ma">♂ 수컷</span> <input type="number" min="0" value="${r.m}" data-i="${i}" class="nm"></label><label><span class="fe">♀ 암컷</span> <input type="number" min="0" value="${r.f}" data-i="${i}" class="nf"></label></div></div>`).join('')}</div>
      <div class="row"><button class="btn" id="nAdd">+ 줄 추가</button><span id="nMsg" class="dim"></span></div>
@@ -1558,14 +1558,14 @@ async function applyOps(ops,note){
 window.starAgent={snapshot,preview:ops=>planOps(ops).rows.map(r=>(r.ok?'✓ ':'✗ ')+r.line),apply:applyOps,undo:id=>undoSave(id),ops:Object.keys(OPS).filter(k=>k[0]!=='_').concat(OP_EV)};
 function snapForm(){
   CUR=null;const txt=JSON.stringify(snapshot());$('#dT').textContent='현황 보내기';
-  $('#dB').innerHTML=`<div class="frm"><div class="tip">복사해서 Claude 채팅에 붙여넣기 + 오늘 한 작업(라벨 사진 등)을 같이 보내면, Claude가 '작업 붙여넣기'에 넣을 내용을 만들어 줌. 백업 파일보다 짧게 cage·litter·최근 기록만 담김.</div>
+  $('#dB').innerHTML=`<div class="frm">
     <textarea id="snT" readonly style="min-height:160px;font-size:11px">${esc(txt)}</textarea><div class="row"><button class="btn pri" id="snC">복사</button><span class="dim" id="snM">${(txt.length/1024).toFixed(1)} KB</span></div></div>`;
   $('#snC').onclick=async()=>{try{await navigator.clipboard.writeText(txt);$('#snM').textContent='복사됨'}catch(e){$('#snT').select();document.execCommand('copy');$('#snM').textContent='복사됨 (선택 후 복사)'}};
   $('#dlg').showModal();
 }
 function opsForm(){
   if(!isAdmin())return;CUR=null;$('#dT').textContent='작업 붙여넣기';
-  $('#dB').innerHTML=`<div class="frm"><div class="tip">Claude가 만든 작업 목록(JSON)을 붙여넣고 미리보기 → 저장. 한 줄이라도 틀리면 저장 안 됨.</div>
+  $('#dB').innerHTML=`<div class="frm">
     <textarea id="opT" style="min-height:140px;font-size:12px" placeholder='{"note":"11/16 유진·재혁 물 교체","ops":[{"op":"mateEnd","cage":"FRG 3-C","date":"2026-11-16"}]}'></textarea>
     <div class="row"><button class="btn" id="opP">미리보기</button><button class="btn pri" id="opA" disabled>저장</button></div><div id="opR"></div></div>`;
   let cur=null;const parse=()=>{try{const j=JSON.parse($('#opT').value);return Array.isArray(j)?{ops:j}:j}catch(e){$('#opR').innerHTML=warnH(['JSON 형식 오류: '+e.message]);return null}};
@@ -1628,12 +1628,12 @@ function legacyForm(){
   CUR=null;const X=S.xls||{n:30,date:''},n0=X.date===todayS()?X.n:X.n+1,last=(S.countLog||[]).slice(-1)[0];
   $('#dT').textContent='인수인계 엑셀';
   $('#dB').innerHTML=`<div class="frm">
-   <div class="tip">당번 끝날 때 넘기는 Mouse_data_information 파일. litter(#번호)마다 한 줄 · Information = 사망·실험 · Plan = Mating·출산·분리. 번호는 받을 때마다 +1.</div>
+   
    <div class="row"><label>번호 <input type="number" id="lgN" min="1" value="${n0}" style="width:70px"></label><label>이니셜 <input id="lgI" maxlength="6" value="${esc(initials(ME?.name||ME?.nick))}" style="width:70px"></label></div>
    <label>남은 NTBC <input id="lgL" value="${esc(last?.left||'')}" placeholder="예: 8.1 vials"></label>
    <div class="dim" id="lgF"></div>
    <div class="row"><button class="btn pri" id="lgOk">다운로드</button></div>
-   <div class="dim" style="border-top:1px solid var(--line);padding-top:8px">cage마다 한 줄인 표가 필요하면 <button class="btn" id="lgC" style="font-size:12.5px;padding:3px 10px">cage별 표 받기</button></div></div>`;
+   <div style="border-top:1px solid var(--line);padding-top:8px"><button class="btn" id="lgC" style="font-size:12.5px;padding:3px 10px">cage별 표 받기</button></div></div>`;
   const fn=()=>`Mouse_data_information_${$('#lgN').value}_${dotD(todayS())}_${$('#lgI').value.trim()}.xlsx`;
   $('#lgC').onclick=()=>{exportXlsx();logEv({cage:'엑셀',type:'cage별 표 엑셀',text:''})};
   const upd=()=>$('#lgF').textContent=fn();upd();$('#lgN').oninput=upd;$('#lgI').oninput=upd;
@@ -1723,7 +1723,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117161348';
+let NEWV=0;const VER='20261117161827';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
