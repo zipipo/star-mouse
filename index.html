@@ -149,7 +149,6 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .tdup button{display:block;width:100%;text-align:left;border:0;background:var(--soft);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:14px;min-height:48px}
 .card .lab{font-size:16.5px}
 .card .cid{font-size:12px;color:var(--sub)}
-.alp{align-self:flex-start;font-size:15px;font-weight:800;background:var(--bg);border-radius:8px;padding:2px 8px}
 .bq{width:100%;min-height:44px;font-size:15px;margin-bottom:10px}
 .undone td:nth-child(4){text-decoration:line-through;opacity:.6}
 </style>
@@ -510,12 +509,6 @@ function labParts(c){const r=dobsOf(c),ms=[...new Set([r.m,r.mm].filter(Boolean)
 const labS=c=>labParts(c).map(([s,d])=>`${s?s+' ':''}${d.split(',').map(fd).join(', ')}`).join(' / ');
 const labH=c=>labParts(c).map(([s,d])=>`${s?`<span class="${s==='♂'?'ma':'fe'}">${s}</span> `:''}${d.split(',').map(fd).join(', ')}`).join(' / ')||esc(c.id);
 const shown=c=>total(c)>0||c.mate||c.wait;
-/* 같은 line에 라벨 DOB가 같은 cage가 여럿이면 알파벳을 라벨에 적게 */
-const dupAlpha=c=>{const k=labS(c);return S.cages.filter(x=>x.line===c.line&&shown(x)&&labS(x)===k).length>1?c.id.slice(c.line.length+1):''};
-const alpH=c=>{const a=dupAlpha(c);return !a?'':c.labW===a?`<span class="alp" style="font-size:12px;font-weight:700;opacity:.7">라벨 ${esc(a)}</span>`:`<span class="alp">라벨에 ${esc(a)} 적기</span>`};
-/* cage 창: 같은 DOB cage가 여럿이면 라벨에 알파벳 적고 [적었음] */
-const labBox=c=>{const a=dupAlpha(c);if(!a)return '';return c.labW===a?`<div class="dim" style="margin-top:4px">라벨에 ${esc(a)} 적음 ✓</div>`:
-  `<div class="row" style="margin-top:6px;justify-content:space-between;background:var(--blue);border-radius:8px;padding:6px 10px"><span>라벨에 <b style="font-size:16px">${esc(a)}</b> 적기</span>${canEdit()?`<button class="btn pri" id="labW" style="min-height:40px">적었음</button>`:''}</div>`};
 /* DOB 검색: 26.04.06 · 260406 · 0406 · 4/6 · 4.6. 글자가 있으면 cage id·이름 검색 */
 function parseQ(q){q=(q||'').trim();if(!q)return null;if(/[A-Za-z가-힣]/.test(q))return {txt:q.toLowerCase()};
   const p=q.split(/\D+/).filter(Boolean);let y=null,m,d;
@@ -570,7 +563,7 @@ function renderToday(){
     if(x.k==='norec')return `<div class="row"><button class="big pri" data-do="open" data-tk="${K}">cage 열기</button></div>`;
     return ''};
   const row=x=>`<div class="tdi${x.late?' late':''}"><div class="k">${esc(x.t)}${x.late?` · ${days(x.redAfter)}일 지남`:''}</div>
-    ${x.c?`<div class="row" style="gap:6px;align-items:baseline"><span class="lab">${labH(x.c)}</span>${alpH(x.c)}</div><div class="dim">${cname(x.c)} · ${esc(x.sub)}</div>`:`<div class="dim">${esc(x.sub)}</div>`}${ctl(x)}</div>`;
+    ${x.c?`<div class="row" style="gap:6px;align-items:baseline"><span class="lab">${labH(x.c)}</span></div><div class="dim">${cname(x.c)} · ${esc(x.sub)}</div>`:`<div class="dim">${esc(x.sub)}</div>`}${ctl(x)}</div>`;
   $('#view').innerHTML=`<div class="td">${late.length?`<div class="tdsec late">지난 일 ${late.length}</div>${late.map(row).join('')}`:''}<div class="tdsec">오늘 ${md(T)} · ${now.length}</div>${now.map(row).join('')||'<div class="dim" style="padding:8px 2px">오늘 할 일 없음 🐾</div>'}
     ${up.length?`<details class="tdup"><summary>다가오는 일 ${up.length} (7일 안)</summary>${up.map(x=>`<button data-c="${esc(x.c?x.c.id:'')}" data-k="${x.k}">${md(x.due)} · ${esc(x.t)} · ${x.c?esc(labS(x.c))+' <span class="dim">'+esc(x.c.id)+'</span>':esc(x.sub)}</button>`).join('')}</details>`:''}</div>`;
   const find=k=>o.find(x=>x.key===k);
@@ -671,7 +664,7 @@ function renderBoard(){
 }
 const outS=c=>S.cages.filter(x=>x.mate&&x.mate.from===c.id).map(x=>`Mating 나감 ♂${x.mate.n} → ${x.id}`).join(' · ');
 function cardH(c){const s=status(c),out=outS(c),src=c.mate&&S.cages.find(x=>x.id===c.mate.from);
-  return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="lab">${labH(c)}</span>${alpH(c)}<span class="cid">${c.name?esc(c.name)+' · ':''}${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.wait&&!c.mate&&pairS(c)?`<span class="dim">아빠 ${pairS(c).split(' × ')[0]}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${notesOf(c).length?`<span class="memo">📝 ${esc(notesOf(c)[0].text)}${notesOf(c).length>1?` (+${notesOf(c).length-1})`:''}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?mateImg(c)+`<span class="dim"><b class="ma">♂ ${c.mate.n}</b> (from ${esc(c.mate.from)}${src?' · DOB '+dobS(src):''})</span>`:mice(c)}${out?`<span class="dim" style="font-size:11.5px">${esc(out)}</span>`:''}</button>`}
+  return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="lab">${labH(c)}</span><span class="cid">${c.name?esc(c.name)+' · ':''}${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.wait&&!c.mate&&pairS(c)?`<span class="dim">아빠 ${pairS(c).split(' × ')[0]}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${notesOf(c).length?`<span class="memo">📝 ${esc(notesOf(c)[0].text)}${notesOf(c).length>1?` (+${notesOf(c).length-1})`:''}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?mateImg(c)+`<span class="dim"><b class="ma">♂ ${c.mate.n}</b> (from ${esc(c.mate.from)}${src?' · DOB '+dobS(src):''})</span>`:mice(c)}${out?`<span class="dim" style="font-size:11.5px">${esc(out)}</span>`:''}</button>`}
 function drawBoard(){const Q=parseQ(BQ);let h='';
   if(Q){const cs=S.cages.filter(c=>shown(c)&&(filt==='전체'||c.line===filt)&&cageHit(c,Q)).sort((a,b)=>a.id.localeCompare(b.id,'ko',{numeric:true}));
     h=`<div class="dim" style="margin-bottom:6px">${esc(BQ)} · ${cs.length} cage</div><div class="cards">${cs.map(cardH).join('')}</div>`}
@@ -911,7 +904,7 @@ function openCage(id,act){
   const src=c.mate&&S.cages.find(x=>x.id===c.mate.from),evB=x=>canEdit()&&x.id?` <button class="evx" data-ev="${esc(x.id)}">수정</button>`:canEdit()&&x.hi!=null?` <button class="evx" data-hi="${x.hi}">수정</button>`:'',
     hli=h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${evB(h)}${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`;
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}</div>
-   ${labBox(c)}<div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
+   <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`${ACTG.map(([g,ks,cl])=>{const b=ACTS.filter(([k])=>ks.includes(k)&&can(c,k)).sort((x,y)=>ks.indexOf(x[0])-ks.indexOf(y[0]));return b.length?`<div class="qa ${cl}"><span class="qg">${g}</span>${b.map(([k,t])=>`<button data-a="${k}" class="${act===k?'on':''}">${t}</button>`).join('')}</div>`:''}).join('')}<div id="form"></div>`:''}
    ${indS(c)?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 개체 표시</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(indS(c)).replace(/ · /g,'<br>')}</div>`:''}
    ${notesOf(c).length?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="display:flex;flex-direction:column;gap:6px">${notesOf(c).map(n=>`<div style="background:var(--soft);border-radius:8px;padding:6px 10px;font-size:13.5px"><div class="dim">${n.t?fd(n.t.slice(0,10))+' '+n.t.slice(11):'이전 메모'}${n.by?' · '+esc(n.by):''}${n.ed?` · 수정 ${fd(n.ed.slice(0,10))} ${n.ed.slice(11)}${n.edBy&&n.edBy!==n.by?' '+esc(n.edBy):''}`:''}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div>`).join('')}</div>`:''}
@@ -921,7 +914,6 @@ function openCage(id,act){
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
    ${listH(evs,(e,k)=>`<li${k===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><b style="font-weight:600">${fd(e.date)} ${esc(e.type)}</b> ${esc(slim(e.text))} <span class="dim">${esc(e.by)}</span>${evB(e)}</li>`)}`;
   $$('[data-a]').forEach(b=>b.onclick=()=>openCage(c.id,b.dataset.a));
-  if($('#labW'))$('#labW').onclick=async()=>{const a=dupAlpha(c);if(await commit(st=>{C(st,c.id).labW=a},[{cage:c.id,type:'라벨',text:`알파벳 ${a} 적음`}]))openCage(c.id)};
   $$('#dB [data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev,()=>openCage(c.id)));
   $$('#dB [data-hi]').forEach(b=>b.onclick=()=>histForm(l.key,+b.dataset.hi,()=>openCage(c.id)));
   if(act)actForm(c,act);
@@ -1723,7 +1715,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117161827';
+let NEWV=0;const VER='20261117162634';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
