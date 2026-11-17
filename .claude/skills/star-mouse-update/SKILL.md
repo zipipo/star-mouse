@@ -54,6 +54,7 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 | `move` | cage, m?, f?, to ("new" 또는 cage id) | 이동 · 새 cage |
 | `sex` | cage, mf? (♂→♀ 수), fm? (♀→♂ 수) | 성별 수정 |
 | `memo` | cage, text | 메모 추가 |
+| `memoDel` | cage, match, why? | 그 cage 메모 중 match 글자가 들어간 걸 모두 지움 (예전 메모 포함), `메모 지움` 기록. 맞는 메모가 없으면 ✗ → match를 snapshot cages의 notes 글자 그대로 짧게 |
 | `litter` | litter, dob?, mom?, dad?, ended? | litter 정보 고침 (예: 엄마 litter 잘못) |
 | `delEvent` | id, why | 잘못된 기록 삭제 (id는 snapshot events 첫 칸) |
 | `editEvent` | id, date?/cage?/type?/text?, why | 기록 고침 |

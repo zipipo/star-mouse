@@ -1,5 +1,10 @@
 # STAR Mouse 작업 기록
 
+## 2026-11-17 · starAgent memoDel op (main)
+
+- `memoDel({cage, match, why?})`: cage 메모(c.notes와 예전 c.note) 중 match 글자가 들어간 걸 모두 지우고 `메모 지움` 기록 (지운 메모 글 + why). 맞는 게 없거나 match가 비면 미리보기 ✗. 되돌리기도 됨 (apply 결과 undo).
+- SKILL.md op 표에 한 줄 추가.
+
 ## 2026-11-17 · Claude 버튼 관리자만, 계보 폰 화면, 라벨 알파벳 [적었음] (main)
 
 - 기록 탭의 `현황 보내기`·`작업 붙여넣기`는 관리자(isAdmin)에게만 보임. 당번(editor)·보기 전용에겐 안 보임. 다른 사람을 관리자로 올리면 그 사람도 보임.

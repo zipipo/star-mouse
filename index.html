@@ -1417,6 +1417,11 @@ const OPS={
     c.m-=m;c.f-=f;c.indM=inds(c,'m');c.indF=inds(c,'f');if(p){c.pups.n-=p;if(!c.pups.n)c.pups=null}fixMate(c);
     return {type,n:m+f+p,text:[m&&'♂'+m,f&&'♀'+f,p&&'새끼 '+p,o.text&&(type==='실험'?'· ':'· 사유 ')+o.text].filter(Boolean).join(' ')}},
   memo:(st,o)=>{const c=C(st,o.cage);c.notes=[...(c.notes||[]),{t:nowS(),by:ME.nick,text:o.text}];return {type:'메모',text:o.text}},
+  /* match 글자가 들어간 메모(예전 메모 c.note 포함)를 모두 지움. 없으면 ✗ */
+  memoDel:(st,o)=>{const c=C(st,o.cage),m=String(o.match||'').trim();if(!m)throw new Error('match 필요');const gone=[];
+    if(c.note&&c.note.includes(m)){gone.push(c.note);c.note=''}
+    c.notes=(c.notes||[]).filter(n=>{if(String(n.text||'').includes(m)){gone.push(n.text);return false}return true});
+    if(!gone.length)throw new Error(`'${m}' 들어간 메모 없음`);return {type:'메모 지움',text:gone.join(' / ')+(o.why?' · '+o.why:'')}},
   wean:(st,o)=>{const c=C(st,o.cage);if(!c.pups)throw new Error('새끼 없음');const k=c.pups.litter,R=(o.rows||[]).filter(r=>r.n>0),s=R.reduce((a,r)=>a+r.n,0);
     if(!s||(!c.pups.unk&&s>c.pups.n))throw new Error('분리 마리수 확인');const Ls=nextLetters(k,R.length,st);
     R.forEach((r,i)=>st.cages.push({id:`${k}-${Ls[i]}`,line:c.line,litter:k,m:r.sx==='♂'?r.n:0,f:r.sx==='♀'?r.n:0,pups:null,mate:null,wait:null,dad:null,note:''}));
@@ -1622,7 +1627,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117082714';
+let NEWV=0;const VER='20261117092416';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
