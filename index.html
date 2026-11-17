@@ -127,6 +127,30 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .evx{border:0;background:none;color:var(--sub);font-size:12px;padding:0 4px;text-decoration:underline;cursor:pointer}
 .rules h4{margin:14px 0 4px;font-size:14px}.rules ul{margin:0;padding-left:18px}.rules li{margin:2px 0}
 .node.mt{background:#fff;border:1.5px dashed #f2a7c3;cursor:pointer}.node .pp{font-size:12px;background:#fff9;border-radius:6px;padding:0 5px}
+/* 오늘 할 일 · 되돌리기 · DOB 라벨 */
+#toast{display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100vw - 24px)}#toast span{flex:1;min-width:0}
+#toast button{border:0;border-radius:99px;background:var(--peach-2);color:var(--peach-ink);font-weight:700;font-size:14px;padding:0 16px;min-height:44px;white-space:nowrap;flex:none}
+.td{display:flex;flex-direction:column;gap:10px}
+.tdsec{font-size:14px;font-weight:800;margin:6px 2px 0}.tdsec.late{color:var(--alert-ink)}
+.tdi{background:var(--soft);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;border-left:6px solid var(--peach-2)}
+.tdi.late{background:var(--alert);border-left-color:var(--alert-ink)}
+.tdi .k{font-size:13px;font-weight:800;color:var(--peach-ink)}.tdi.late .k{color:var(--alert-ink)}
+.tdi .row{gap:8px}
+.lab{font-size:18px;font-weight:800;line-height:1.3}
+.big{min-height:48px;border:0;border-radius:12px;padding:0 16px;font-size:15px;font-weight:700;background:var(--bg);color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--line)}
+.big.pri{background:var(--peach-2);color:var(--peach-ink);box-shadow:none}
+.big.sq{width:48px;padding:0;font-size:22px}
+.big:disabled{opacity:.45}
+.tdi input[type=date],.tdi input.by,.tdi select{min-height:48px;font-size:15px}
+.tdi input.n{width:64px;min-height:48px;text-align:center;font-size:18px;font-weight:700}
+.tdi label.ck{display:flex;align-items:center;gap:8px;min-height:48px;font-size:15px}.tdi label.ck input{width:22px;height:22px}
+.tdup{margin-top:6px}.tdup summary{cursor:pointer;font-weight:700;padding:8px 2px}
+.tdup button{display:block;width:100%;text-align:left;border:0;background:var(--soft);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:14px;min-height:48px}
+.card .lab{font-size:16.5px}
+.card .cid{font-size:12px;color:var(--sub)}
+.alp{align-self:flex-start;font-size:15px;font-weight:800;background:var(--bg);border-radius:8px;padding:2px 8px}
+.bq{width:100%;min-height:44px;font-size:15px;margin-bottom:10px}
+.undone td:nth-child(4){text-decoration:line-through;opacity:.6}
 </style>
 </head>
 <body>
@@ -143,7 +167,8 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 <div class="todo" id="todo"></div>
 <div class="todo mat" id="mat"></div>
 <nav class="tabs" role="tablist" id="tabs">
-  <button role="tab" data-tab="board" aria-selected="true">케이지</button>
+  <button role="tab" data-tab="today" aria-selected="true">오늘 할 일</button>
+  <button role="tab" data-tab="board" aria-selected="false">케이지</button>
   <button role="tab" data-tab="tree" aria-selected="false">계보</button>
   <button role="tab" data-tab="log" aria-selected="false">기록</button>
   <button role="tab" data-tab="handover" aria-selected="false">인수인계</button>
@@ -179,7 +204,7 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 
 let PRES=[];
 let S=null, EVENTS=[], HANDOVERS=[], MEMBERS=[], ME=null, AUTH=null, started=false;
-let tab='board', filt='전체';
+let tab='today', filt='전체', BQ='', TD={};
 
 /* ===== 초기 데이터: 2026.10.27 엑셀 기준 ===== */
 function seedState(){
@@ -243,23 +268,31 @@ function fbStore(){
       db.collection('handovers').orderBy('ts','desc').limit(30).onSnapshot(q=>{HANDOVERS=q.docs.map(x=>({id:x.id,...x.data()}));render()});
       if(isAdmin())db.collection('members').onSnapshot(q=>{MEMBERS=q.docs.map(x=>({uid:x.id,...x.data()}));render()});
     },
-    async commit(mut,evs){
-      const ref=db.doc('colony/main');
-      await db.runTransaction(async tx=>{
-        const s=await tx.get(ref);const st=clone(s.data());mut(st);tx.set(ref,clone(st));
-        evs.forEach(e=>tx.set(db.collection('events').doc(),{...e,ts:FV.serverTimestamp()}));
+    /* 상태 저장 + 기록. 바뀐 게 있으면 첫 기록에 chg(전후)를 붙이고, 기록이 없으면 '상태 변경' 기록을 만듦. marks: 다른 기록에 표시(되돌림) */
+    async commit(mut,evs,marks){
+      const ref=db.doc('colony/main');let out=null;
+      /* plain: Firestore 규칙이 새 필드(chg·grp·undoOf)를 막으면 그 필드 빼고 한 번 더 (되돌리기만 안 됨) */
+      const run=plain=>db.runTransaction(async tx=>{
+        const s=await tx.get(ref);const b=s.data()||{},st=clone(b);mut(st);const r=prepEvs(b,st,evs);tx.set(ref,clone(st));
+        const refs=r.evs.map(()=>db.collection('events').doc()),grp=refs[0]?refs[0].id:null;
+        r.evs.forEach((e,i)=>{const x={...e,grp,ts:FV.serverTimestamp()};if(plain){delete x.chg;delete x.grp;delete x.undoOf}tx.set(refs[i],x)});
+        if(!plain)(marks||[]).forEach(m=>tx.update(db.doc('events/'+m.id),m.patch));
+        out=plain?{}:{grp,chg:r.chg,ids:refs.map(x=>x.id)};
       });
+      try{await run(false)}catch(e){if(!/permission|insufficient/i.test(e.code+' '+e.message))throw e;console.warn('새 필드 없이 다시 저장',e);await run(true)}
+      return out;
     },
     /* 기록 한 줄 수정(patch) 또는 삭제(null). mut가 있으면 cage 상태도 같이 바꿈 */
     async editEvent(id,patch,mut,log){
       const ref=db.doc('colony/main'),er=db.doc('events/'+id);
-      await db.runTransaction(async tx=>{let st=null;if(mut){const s=await tx.get(ref);st=clone(s.data());mut(st)}
+      await db.runTransaction(async tx=>{let st=null,L=log;if(mut){const s=await tx.get(ref);const b=s.data()||{};st=clone(b);mut(st);const r=prepEvs(b,st,log?[log]:[]);L=r.evs[0]||null}
         if(patch===null)tx.delete(er);else tx.update(er,patch);if(mut)tx.set(ref,clone(st));
-        if(log)tx.set(db.collection('events').doc(),{...log,ts:FV.serverTimestamp()})});
+        if(L)tx.set(db.collection('events').doc(),{...L,ts:FV.serverTimestamp()})});
     },
     log:e=>db.collection('events').add({...e,ts:FV.serverTimestamp()}),
     async seed(st,evs){
       const b=db.batch();b.set(db.doc('colony/main'),clone(st));
+      b.set(db.collection('events').doc(),{date:todayS(),by:ME.nick,cage:'전체',type:'초기 데이터',text:`cage ${st.cages.length}개 · litter ${st.litters.length}개로 시작 (기존 데이터 덮어씀)`,ts:FV.serverTimestamp()});
       evs.forEach((e,i)=>b.set(db.collection('events').doc(),{...e,ts:firebase.firestore.Timestamp.fromMillis(d(e.date).getTime()+i)}));
       await b.commit();
     },
@@ -280,6 +313,7 @@ function fbStore(){
     updateHandover:(id,p)=>db.doc('handovers/'+id).update(p),
   };
 }
+let DID=0;
 function demoStore(){
   let me={nick:'유진',name:'유진',email:'demo',role:'admin'};
   return {
@@ -289,9 +323,11 @@ function demoStore(){
     saveMember(uid,data){if(uid==='demo'){Object.assign(me,data);ME={uid,...me}}else Object.assign(MEMBERS.find(m=>m.uid===uid),data);render()},
     watchData(){S=seedState();EVENTS=SEED_EVENTS.map((e,i)=>({id:'s'+i,...e}));HANDOVERS=[];
       MEMBERS=[{uid:'demo',...me},{uid:'p1',nick:'재혁',name:'재혁',email:'example@gmail.com',role:'pending'}];render()},
-    async commit(mut,evs){const st=clone(S);mut(st);S=clone(st);EVENTS=sortEv([...evs.map((e,i)=>({id:'d'+Date.now()+i,...e})),...EVENTS]);render()},
-    async editEvent(id,patch,mut,log){if(mut){const st=clone(S);mut(st);S=st}
-      EVENTS=patch===null?EVENTS.filter(e=>e.id!==id):sortEv(EVENTS.map(e=>e.id===id?{...e,...patch}:e));if(log)EVENTS=sortEv([{id:'d'+Date.now(),...log},...EVENTS]);render()},
+    async commit(mut,evs,marks){const b=clone(S),st=clone(S);mut(st);const r=prepEvs(b,st,evs);S=clone(st);const ids=r.evs.map(()=>'d'+(++DID)),grp=ids[0]||null;
+      (marks||[]).forEach(m=>{const e=EVENTS.find(x=>x.id===m.id);if(e)Object.assign(e,m.patch)});
+      EVENTS=sortEv([...r.evs.map((e,i)=>({id:ids[i],grp,...e})),...EVENTS]);render();return {grp,chg:r.chg,ids}},
+    async editEvent(id,patch,mut,log){let L=log;if(mut){const b=clone(S),st=clone(S);mut(st);L=prepEvs(b,st,log?[log]:[]).evs[0]||null;S=st}
+      EVENTS=patch===null?EVENTS.filter(e=>e.id!==id):sortEv(EVENTS.map(e=>e.id===id?{...e,...patch}:e));if(L)EVENTS=sortEv([{id:'d'+(++DID),...L},...EVENTS]);render()},
     async log(e){EVENTS=sortEv([{id:'d'+Date.now(),...e},...EVENTS]);render()},
     async seed(st,evs){S=st;EVENTS=evs;render()},
     presence(){PRES=[{uid:'demo',nick:ME.nick,t:Date.now()},{uid:'x',nick:'재혁',t:Date.now()}];drawPres()},
@@ -302,11 +338,59 @@ function demoStore(){
   };
 }
 const Store=DEMO?demoStore():fbStore();
-function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>e.hidden=true,2600)}
-async function commit(mut,evs=[]){
-  try{await Store.commit(mut,evs.map(e=>({date:todayS(),by:ME.nick,...e})));toast(evs.length?`저장됨 · ${evs[0].cage} ${evs[0].type}`:'저장됨');return true}
+/* 토스트: undo가 있으면 [되돌리기] 버튼 10초. 대화창이 열려 있으면 그 안에 띄워야 눌림 */
+function toast(t,undo){const e=$('#toast'),host=$('#dlg').open?$('#dlg'):document.body;if(e.parentNode!==host)host.appendChild(e);
+  e.innerHTML=`<span>${esc(t)}</span>${undo?'<button type="button" id="tUndo">되돌리기</button>':''}`;e.hidden=false;clearTimeout(toast.h);
+  if(undo)$('#tUndo').onclick=async()=>{e.hidden=true;await undoSave(undo)};
+  toast.h=setTimeout(()=>e.hidden=true,undo?10000:2600)}
+/* 저장. 성공하면 되돌리기 id(grp)를 돌려줌 */
+const UNDO={};
+async function commit(mut,evs=[],marks){
+  try{const r=await Store.commit(mut,evs.map(e=>({date:todayS(),by:ME.nick,...e})),marks)||{};const e0=evs[0];
+    if(r.grp&&r.chg&&!r.chg.big)UNDO[r.grp]={chg:r.chg,ids:r.ids||[],sum:e0?`${e0.cage} ${e0.type}${e0.text?' '+e0.text:''}`:'상태 변경'};
+    toast(e0?`저장됨 · ${e0.cage} ${e0.type}`:'저장됨',UNDO[r.grp]?r.grp:null);return r.grp||true}
   catch(e){toast(e.message&&e.message.length<60?e.message:'저장 실패, 다시 시도');console.error(e);return false}
 }
+/* ===== 저장 전후 차이(chg): 기록 탭 표시 · 되돌리기 ===== */
+const stab=o=>JSON.stringify(o??null,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((r,x)=>(r[x]=v[x],r),{}):v);
+const same=(a,b)=>stab(a)===stab(b);
+function stDelta(b,a){b=b||{};a=a||{};const o={cages:{},litters:{},keys:{}};let n=0;const by=(arr,k)=>Object.fromEntries((arr||[]).map(x=>[x[k],x]));
+  [['cages','id'],['litters','key']].forEach(([f,k])=>{const B=by(b[f],k),A=by(a[f],k);new Set([...Object.keys(B),...Object.keys(A)]).forEach(id=>{if(!same(B[id],A[id])){o[f][id]={b:B[id]??null,a:A[id]??null};n++}})});
+  new Set([...Object.keys(b),...Object.keys(a)]).forEach(k=>{if(k!=='cages'&&k!=='litters'&&!same(b[k],a[k])){o.keys[k]={b:b[k]??null,a:a[k]??null};n++}});
+  return n?o:null}
+const KEYL={ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸'};
+const CFL={name:'이름',notes:'메모',note:'메모',indM:'개체 표시',indF:'개체 표시',purpose:'용도',dad:'아빠',litter:'litter',line:'종류'};
+const csS=c=>`♂${c.m||0}♀${c.f||0}${c.pups?' 새끼'+pupS(c.pups):''}${c.mate?` Mating(♂${c.mate.n} ${fd(c.mate.start)})`:''}${c.wait?' 출산 대기 '+fd(c.wait):''}`;
+function deltaText(x){if(!x)return '';if(x.big)return x.text||'';const t=[];
+  Object.entries(x.cages||{}).forEach(([id,{b,a}])=>{if(!b){t.push(`+${id} ${csS(a)}`);return}if(!a){t.push(`−${id} (${csS(b)})`);return}
+    const cnt=csS(b)!==csS(a),oth=[...new Set(Object.keys({...b,...a}).filter(k=>!['m','f','pups','mate','wait','id'].includes(k)&&!same(b[k],a[k])).map(k=>CFL[k]||k))];
+    t.push(`${id} ${cnt?csS(b)+' → '+csS(a):''}${oth.length?(cnt?' · ':'')+oth.join('·')+' 바뀜':''}`)});
+  Object.entries(x.litters||{}).forEach(([k,{b,a}])=>t.push(!b?`+litter ${k} (DOB ${fd(a.dob||'')})`:!a?`−litter ${k}`:`litter ${k} ${['dob','mom','dad','ended','hist'].filter(f=>!same(b[f],a[f])).map(f=>f==='ended'?(a.ended?'종료':'종료 해제'):f==='hist'?'이력 바뀜':`${f} ${b[f]||'-'} → ${a[f]||'-'}`).join(' · ')}`));
+  Object.keys(x.keys||{}).forEach(k=>t.push((KEYL[k]||k)+' 바뀜'));
+  return t.join(' / ')}
+/* 저장 직전 상태(b)와 뒤(a)를 비교해 기록을 채움: 기록 없이 상태만 바뀌는 일이 없게 */
+function prepEvs(b,a,evs){let chg=stDelta(b,a);if(chg&&stab(chg).length>200000)chg={big:1,text:deltaText(chg).slice(0,2000)};
+  const E=(evs||[]).map(e=>({...e}));
+  if(chg&&!E.length){const ids=Object.keys(chg.cages||{});E.push({date:todayS(),by:ME?ME.nick:'',cage:ids.length===1?ids[0]:'전체',type:'상태 변경',text:deltaText(chg).slice(0,600)})}
+  if(chg&&E.length)E[0].chg=chg;return {evs:E,chg}}
+/* 되돌리기: 그 저장이 바꾼 cage·litter·값만 저장 전으로. 그 뒤 다른 저장이 같은 곳을 바꿨으면 막음 */
+function revertChg(st,x){if(!x||x.big)throw new Error('되돌릴 수 없는 저장 (바뀐 게 너무 많음)');const bad=[];
+  [['cages','id'],['litters','key']].forEach(([f,k])=>Object.entries(x[f]||{}).forEach(([id,{a}])=>{const arr=st[f]||[],i=arr.findIndex(y=>y[k]===id);if(!same(i<0?null:arr[i],a))bad.push(id)}));
+  Object.entries(x.keys||{}).forEach(([k,{a}])=>{if(!same(st[k],a))bad.push(KEYL[k]||k)});
+  if(bad.length)throw new Error(`그 뒤에 바뀜: ${bad.slice(0,3).join(', ')}`);
+  [['cages','id'],['litters','key']].forEach(([f,k])=>Object.entries(x[f]||{}).forEach(([id,{b}])=>{const arr=st[f]=st[f]||[],i=arr.findIndex(y=>y[k]===id);if(b){if(i<0)arr.push(clone(b));else arr[i]=clone(b)}else if(i>=0)arr.splice(i,1)}));
+  Object.entries(x.keys||{}).forEach(([k,{b}])=>{if(b==null)delete st[k];else st[k]=clone(b)})}
+const ugrp=e=>e.grp||e.id;
+/* 이 기록(저장)이 되돌려졌는지: 되돌림 기록이 있고 그 되돌림이 다시 되돌려지지 않았으면 */
+function undoneOf(e,dep=0){if(dep>5)return null;const x=EVENTS.find(y=>y.undoOf&&y.undoOf===ugrp(e));return x&&!undoneOf(x,dep+1)?{by:x.by,date:x.date}:null}
+async function undoSave(id){
+  const e=EVENTS.find(x=>x.id===id),g=UNDO[id]?id:e?(e.grp||e.id):id,u=UNDO[g];
+  const evs=EVENTS.filter(x=>(x.grp||x.id)===g),h=evs.find(x=>x.chg)||evs[evs.length-1],chg=u?u.chg:h&&h.chg;
+  if(!chg){toast('되돌릴 수 있는 저장이 아님');return false}
+  if((u&&u.done)||(h&&undoneOf(h))){toast('이미 되돌림');return false}
+  const ids=[...new Set([...(u?u.ids:[]),...evs.map(x=>x.id)])];
+  const r=await commit(st=>revertChg(st,chg),[{cage:h?h.cage:'전체',type:'되돌림',text:`${h?evS(h):u.sum}${ids.length>1?` 외 ${ids.length-1}건`:''}`,undoOf:g}]);
+  if(r&&u)u.done=1;return r}
 /* 기록은 날짜 순(같은 날은 입력 순). 지난 날짜로 넣은 기록도 제자리에 보이게 */
 function sortEv(a){return a.sort((x,y)=>String(y.date||'').localeCompare(String(x.date||'')))}
 /* 화면 밖 작업(인수인계·멤버·내보내기)도 기록에 남김. 실패해도 본 작업은 그대로 */
@@ -352,7 +436,7 @@ const nextLetters=(k,n,st=S,skip=[])=>{const used=[...st.cages.filter(c=>c.litte
 
 function status(c){
   if(c.pups){const p=days(c.pups.born),[a,b]=WEANL(c.line);return{t:p>b?`D${p} 분리 지남 · 크기 작으면 더 두기`:p>=a?`D${p} 분리할 때`:p<NO_TOUCH?`D${p} · 케이지 교체 금지 ~${md(addD(c.pups.born,NO_TOUCH))}`:`D${p}`,late:p>=a}}
-  if(c.mate){const n=days(c.mate.start);return{t:n>=MATE_DAYS?`메이팅 D${n} 수컷 빼기`:`메이팅 D${n} · ♂ ${md(addD(c.mate.start,MATE_DAYS))} 빼기`,late:n>=MATE_DAYS}}
+  if(c.mate){const n=days(c.mate.start);return{t:`Mating D${n}`,late:n>=MATE_DAYS}}
   if(c.wait){const n=days(c.wait),a=addD(c.wait,GEST[0]),b=addD(c.wait,GEST[1]);return{t:n>GEST[1]?`출산 예정일 지남 (${md(a)}~${md(b)}) · 임신 안 됐으면 출산 없음 → 다시 Mating`:`출산 예정 ${md(a)}~${md(b)}`,late:n>=GEST[0]}}
   return null;
 }
@@ -413,6 +497,102 @@ function undoBirth(st,c,w){const p=c.pups;if(!p)throw new Error('새끼 없음')
   c.pups=null;c.wait=c.f>0?wt:null;
   return {type:'출산 취소',text:`${p.litter} 새끼 ${pupS(p)} (출산 ${fd(p.born)}) ${keep?'litter 종료':'litter 삭제'}${c.mate?' · Mating 중으로':c.wait?` · 출산 대기 ${fd(c.wait)} 기준`:''}`}}
 
+/* ===== DOB 라벨: 라벨지처럼 ♀ DOB / ♂ DOB ===== */
+function dobsOf(c,st=S){const L=lit(c.litter,st),own=L?L.dob:'',src=c.mate&&st.cages.find(x=>x.id===c.mate.from),ml=c.mate?(src?lit(src.litter,st):c.dad?lit(c.dad,st):null):null;
+  const mOwn=c.m-(c.mate?c.mate.n:0);return {f:c.f>0?own:'',m:mOwn>0?own:'',mm:ml?ml.dob:'',own,pup:c.pups?(lit(c.pups.litter,st)||{}).dob||c.pups.born:''}}
+function labParts(c){const r=dobsOf(c),ms=[...new Set([r.m,r.mm].filter(Boolean))];
+  if(!r.f&&!ms.length)return r.own?[['',r.own]]:[];if(r.f&&ms.length===1&&ms[0]===r.f)return [['♀♂',r.f]];
+  return [...(r.f?[['♀',r.f]]:[]),...(ms.length?[['♂',ms.join(',')]]:[])]}
+const labS=c=>labParts(c).map(([s,d])=>`${s?s+' ':''}${d.split(',').map(fd).join(', ')}`).join(' / ');
+const labH=c=>labParts(c).map(([s,d])=>`${s?`<span class="${s==='♂'?'ma':'fe'}">${s}</span> `:''}${d.split(',').map(fd).join(', ')}`).join(' / ')||esc(c.id);
+const shown=c=>total(c)>0||c.mate||c.wait;
+/* 같은 line에 라벨 DOB가 같은 cage가 여럿이면 알파벳을 라벨에 적게 */
+const dupAlpha=c=>{const k=labS(c);return S.cages.filter(x=>x.line===c.line&&shown(x)&&labS(x)===k).length>1?c.id.slice(c.line.length+1):''};
+const alpH=c=>{const a=dupAlpha(c);return a?`<span class="alp">라벨에 ${esc(a)} 적기</span>`:''};
+/* DOB 검색: 26.04.06 · 260406 · 0406 · 4/6 · 4.6. 글자가 있으면 cage id·이름 검색 */
+function parseQ(q){q=(q||'').trim();if(!q)return null;if(/[A-Za-z가-힣]/.test(q))return {txt:q.toLowerCase()};
+  const p=q.split(/\D+/).filter(Boolean);let y=null,m,d;
+  if(p.length>=3)[y,m,d]=p.slice(-3);else if(p.length===2)[m,d]=p;else{const s=p[0]||'';
+    if(s.length===6){y=s.slice(0,2);m=s.slice(2,4);d=s.slice(4)}else if(s.length===8){y=s.slice(0,4);m=s.slice(4,6);d=s.slice(6)}else if(s.length===4){m=s.slice(0,2);d=s.slice(2)}else if(s.length===3){m=s[0];d=s.slice(1)}else return null}
+  return {y:y==null?null:(+y)%100,m:+m,d:+d}}
+const dobHit=(dob,Q)=>{if(!dob)return false;const [y,m,d]=dob.split('-').map(Number);return (Q.y==null||y%100===Q.y)&&m===Q.m&&d===Q.d};
+const cageHit=(c,Q)=>{if(!Q)return true;if(Q.txt)return (c.id+' '+(c.name||'')).toLowerCase().includes(Q.txt);const r=dobsOf(c);return [r.f,r.m,r.mm,r.pup].some(x=>dobHit(x,Q))};
+
+/* ===== 오늘 할 일: 앱 열면 첫 화면. 지난 일(빨강) → 오늘 일, 줄마다 바로 저장 ===== */
+const snz=k=>(S.snooze||{})[k]===todayS();
+function taskList(){
+  const T=todayS(),o=[],up=[];
+  const add=x=>{if(x.due>T){if(x.due<=addD(T,7))up.push(x);return}if(snz(x.key))return;x.late=x.redAfter<T;o.push(x)};
+  const nb=ntbcNext();add({k:'ntbc',key:'ntbc:'+(nb?nb.next:''),cage:'전체',due:nb?nb.next:T,redAfter:nb?nb.next:T,t:'NTBC 교체',sub:nb?`마지막 전체 교체 ${md(nb.last)} → ${md(nb.next)}`:'전체 교체 기록 없음'});
+  S.cages.forEach(c=>{
+    if(c.mate){const due=addD(c.mate.start,MATE_DAYS);add({k:'mateEnd',key:'me:'+c.id+':'+c.mate.start,c,due,redAfter:due,t:'수컷 빼기',sub:`Mating ${md(c.mate.start)} 시작 · D${days(c.mate.start)} · ♂${c.mate.n} → ${c.mate.from}`})}
+    if(c.wait&&!c.pups){const due=addD(c.wait,GEST[0]),end=addD(c.wait,GEST[1]);add({k:'birth',key:'bi:'+c.id+':'+c.wait,c,due,redAfter:end,t:'출산 확인',sub:`출산 예정 ${md(due)}~${md(end)} (Mating ${md(c.wait)})`})}
+    if(c.pups){const p=days(c.pups.born),[a,b]=WEANL(c.line);
+      if((!c.pups.cnt||c.pups.unk)&&p<a){const due=addD(c.pups.born,NO_TOUCH);add({k:'recount',key:'rc:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'새끼 다시 세기',sub:`출산 ${md(c.pups.born)} · D${p} · 지금 ${pupS(c.pups)}마리${c.pups.unk?' (미확인)':''}`})}
+      const due=addD(c.pups.born,b);add({k:'wean',key:'wn:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'암수분리',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · D${p} (5주령 ${md(due)})`});
+      if(!hasBirthRec(c))add({k:'norec',key:'nr:'+c.id+':'+c.pups.litter,c,due:T,redAfter:addD(T,-1),t:'출산 기록 없음',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · 기록 탭에 출산이 없음 → cage 열어서 확인`})}
+  });
+  const hx=HANDOVERS[0];if(hx&&!hx.read)add({k:'ho',key:'ho:'+hx.id,cage:'인수인계',due:T,redAfter:T,t:'인수인계 확인',sub:`${hx.from} → ${hx.to}`,ho:hx});
+  const t=new Date(),mk=ymd(t).slice(0,7);if(t.getDate()>=25&&!(S.reportDone||[]).includes(mk))add({k:'report',key:'rp:'+mk,cage:'보고',due:T,redAfter:T,t:'월말 현황조사',sub:`${t.getMonth()+1}월 일반 mouse 마리수 · cage 세기`});
+  const ord=x=>x.c?x.c.id:'';o.sort((a,b)=>(b.late-a.late)||a.due.localeCompare(b.due)||ord(a).localeCompare(ord(b),'ko',{numeric:true}));up.sort((a,b)=>a.due.localeCompare(b.due));
+  return {o,up}}
+/* 새끼가 있는데 출산 기록(기록 탭 또는 처음 옮긴 이력)이 없으면 true가 아님 */
+function hasBirthRec(c){const k=c.pups.litter,re=new RegExp('(→|->)\\s*'+reEsc(k)+'(?![-0-9])');
+  if(EVENTS.some(e=>e.type==='출산'&&!undoneOf(e)&&re.test(e.text||'')))return true;
+  if(days(c.pups.born)>60)return true;
+  return S.litters.some(l=>(l.hist||[]).some(h=>re.test(h.text||'')))}
+const tdv=(k,f,v)=>{TD[k]=TD[k]||{};return TD[k][f]??v};
+function renderToday(){
+  const {o,up}=taskList(),T=todayS(),ed=canEdit();
+  const late=o.filter(x=>x.late),now=o.filter(x=>!x.late);
+  const dateI=x=>`<input type="date" data-tk="${esc(x.key)}" data-f="date" value="${esc(tdv(x.key,'date',T))}" max="${T}" aria-label="날짜">`;
+  const ctl=x=>{if(!ed)return '';const K=esc(x.key);
+    if(x.k==='mateEnd')return `<div class="row">${dateI(x)}<button class="big pri" data-do="mateEnd" data-tk="${K}">뺐음</button></div>`;
+    if(x.k==='birth'){const n=+tdv(x.key,'n',0),u=!!tdv(x.key,'unk',false);
+      return `<div class="row"><button class="big sq" data-do="minus" data-tk="${K}" aria-label="한 마리 빼기">−</button><input class="n" type="number" min="0" inputmode="numeric" data-tk="${K}" data-f="n" value="${n}" aria-label="새끼 수"><button class="big sq" data-do="plus" data-tk="${K}" aria-label="한 마리 더">+</button><label class="ck"><input type="checkbox" data-tk="${K}" data-f="unk" ${u?'checked':''}> 작아서 못 셈</label></div>
+        <div class="row">${dateI(x)}<button class="big pri" data-do="birth" data-tk="${K}" ${n>0||u?'':'disabled'}>출산 ${u?(n?'약 '+n:'?'):n}마리</button></div>
+        <div class="row"><button class="big" data-do="snooze" data-tk="${K}">아직</button><button class="big" data-do="noBirth" data-tk="${K}">출산 없음</button></div>`}
+    if(x.k==='recount'){const n=tdv(x.key,'n',x.c.pups.n);return `<div class="row"><button class="big sq" data-do="minus" data-tk="${K}" aria-label="한 마리 빼기">−</button><input class="n" type="number" min="0" inputmode="numeric" data-tk="${K}" data-f="n" value="${n}" aria-label="새끼 수"><button class="big sq" data-do="plus" data-tk="${K}" aria-label="한 마리 더">+</button></div><div class="row">${dateI(x)}<button class="big pri" data-do="recount" data-tk="${K}">${n}마리</button></div>`}
+    if(x.k==='wean')return `<div class="row"><button class="big pri" data-do="wean" data-tk="${K}">암수분리</button><button class="big" data-do="snooze" data-tk="${K}">아직 (작음)</button></div>`;
+    if(x.k==='ntbc')return `<div class="row">${dateI(x)}<select data-tk="${K}" data-f="scope" aria-label="범위">${['전체','4마리↑'].map(v=>`<option ${tdv(x.key,'scope','전체')===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div class="row"><input class="by" data-tk="${K}" data-f="by" value="${esc(tdv(x.key,'by',pairOn(tdv(x.key,'date',T))))}" placeholder="누가" aria-label="누가" style="flex:1;min-width:0"><button class="big pri" data-do="ntbc" data-tk="${K}">교체함</button></div>`;
+    if(x.k==='ho')return `<div class="x" style="white-space:pre-wrap">${esc(x.ho.text)}</div>${x.ho.to.includes(ME.name)||isAdmin()?`<div class="row"><button class="big pri" data-do="hoRead" data-tk="${K}">확인</button></div>`:''}`;
+    if(x.k==='report')return `<div class="row"><button class="big pri" data-do="report" data-tk="${K}">현황조사표</button></div>`;
+    if(x.k==='norec')return `<div class="row"><button class="big pri" data-do="open" data-tk="${K}">cage 열기</button></div>`;
+    return ''};
+  const row=x=>`<div class="tdi${x.late?' late':''}"><div class="k">${esc(x.t)}${x.late?` · ${days(x.redAfter)}일 지남`:''}</div>
+    ${x.c?`<div class="row" style="gap:6px;align-items:baseline"><span class="lab">${labH(x.c)}</span>${alpH(x.c)}</div><div class="dim">${cname(x.c)} · ${esc(x.sub)}</div>`:`<div class="dim">${esc(x.sub)}</div>`}${ctl(x)}</div>`;
+  $('#view').innerHTML=`<div class="td">${late.length?`<div class="tdsec late">지난 일 ${late.length}</div>${late.map(row).join('')}`:''}<div class="tdsec">오늘 ${md(T)} · ${now.length}</div>${now.map(row).join('')||'<div class="dim" style="padding:8px 2px">오늘 할 일 없음 🐾</div>'}
+    ${up.length?`<details class="tdup"><summary>다가오는 일 ${up.length} (7일 안)</summary>${up.map(x=>`<button data-c="${esc(x.c?x.c.id:'')}" data-k="${x.k}">${md(x.due)} · ${esc(x.t)} · ${x.c?esc(labS(x.c))+' <span class="dim">'+esc(x.c.id)+'</span>':esc(x.sub)}</button>`).join('')}</details>`:''}</div>`;
+  const find=k=>o.find(x=>x.key===k);
+  /* 입력값은 TD에 두고 다시 그려도 유지. 숫자·누가는 칠 때 버튼 글자만 바꿈 */
+  $$('#view [data-f]').forEach(el=>{const k=el.dataset.tk,f=el.dataset.f,set=()=>{TD[k]=TD[k]||{};TD[k][f]=el.type==='checkbox'?el.checked:f==='n'?Math.max(0,+el.value||0):el.value;if(f==='by')TD[k].byT=1};
+    el.onchange=()=>{set();const x=find(k);if(f==='date'&&x&&x.k==='ntbc'&&!TD[k].byT)TD[k].by=pairOn(el.value);if(f!=='by')renderToday()};
+    if(f==='n'||f==='by')el.oninput=()=>{set();if(f!=='n')return;const x=find(k),b=$(`#view [data-do="${x.k}"][data-tk="${CSS.escape(k)}"]`),u=TD[k].unk,n=TD[k].n;
+      if(b){b.textContent=x.k==='birth'?`출산 ${u?(n?'약 '+n:'?'):n}마리`:`${n}마리`;b.disabled=x.k==='birth'&&!n&&!u}}});
+  $$('#view .tdup [data-c]').forEach(b=>b.onclick=()=>b.dataset.k==='ntbc'?ntbcForm():b.dataset.c&&openCage(b.dataset.c));
+  $$('#view [data-do]').forEach(b=>b.onclick=()=>taskDo(find(b.dataset.tk),b.dataset.do));
+}
+async function taskDo(x,a){if(!x)return;const T=todayS(),V=TD[x.key]||{},D=V.date||T,id=x.c&&x.c.id;
+  if(a==='plus'||a==='minus'){const n0=+tdv(x.key,'n',x.k==='recount'?x.c.pups.n:0);TD[x.key]={...V,n:Math.max(0,n0+(a==='plus'?1:-1))};renderToday();return}
+  if(D>T){toast('미래 날짜는 고를 수 없어요');return}
+  const done=r=>{if(r)delete TD[x.key]};
+  if(a==='mateEnd')return done(await doOp({op:'mateEnd',cage:id,date:D},x.c.mate.start,'Mating 시작일'));
+  if(a==='birth'){const n=+(V.n||0),u=!!V.unk;if(!n&&!u){toast('새끼 수를 넣거나 작아서 못 셈 체크');return}return done(await doOp({op:'birth',cage:id,date:D,n,...(u?{unk:true}:{})},x.c.wait,'Mating 시작일'))}
+  if(a==='noBirth')return done(await doOp({op:'noBirth',cage:id,date:D},x.c.wait,'Mating 시작일'));
+  if(a==='recount')return done(await doOp({op:'census',cage:id,pups:+tdv(x.key,'n',x.c.pups.n),date:D,text:`D${days(x.c.pups.born)} 다시 세기`},x.c.pups.born,'출산일'));
+  if(a==='ntbc')return done(await doOp({op:'ntbc',date:D,scope:V.scope||'전체',by:(V.by??pairOn(D)).trim()||ME.nick}));
+  if(a==='snooze')return done(await commit(st=>{const z={};Object.entries(st.snooze||{}).forEach(([k,v])=>{if(v===T)z[k]=v});z[x.key]=T;st.snooze=z},[{cage:id||x.cage,date:T,type:x.t,text:x.k==='birth'?'아직 출산 안 함 · 내일 다시':'아직 · 내일 다시'}]));
+  if(a==='wean')return openCage(id,'wean');
+  if(a==='open')return openCage(id);
+  if(a==='report')return reportForm();
+  if(a==='hoRead')return Store.updateHandover(x.ho.id,{read:true,readBy:ME.nick}).then(()=>{logEv({cage:'인수인계',type:'인수인계 확인',text:`${x.ho.from} → ${x.ho.to}`});toast('확인함')}).catch(()=>toast('저장 실패'));
+}
+/* op 하나를 미리 돌려보고 저장 (오늘 할 일 버튼용) */
+async function doOp(o,min,minLab){if(min&&o.date<min){toast(`${minLab} ${fd(min)}보다 앞설 수 없어요`);return false}
+  const P=planOps([o]);if(P.bad){toast(P.rows[0].line);return false}
+  return commit(st=>{OPS[o.op](st,{...o})},P.rows.filter(r=>r.ev).map(r=>r.ev))}
+
 /* ===== 화면 ===== */
 function renderTop(){
   $('#meBtn').textContent=`🐾 ${ME.nick}`;
@@ -424,7 +604,7 @@ function renderTop(){
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
   /* 지난 당번이 남긴 가장 최근 인수인계: 확인해도 다음 인수인계 올 때까지 상단에 남음 */
-  const hx=HANDOVERS.find(x=>x.week<w.week)||HANDOVERS[0],hb=$('#hoTop');hb.hidden=!hx;
+  const hx=HANDOVERS.find(x=>x.week<w.week)||HANDOVERS[0],hb=$('#hoTop');hb.hidden=!hx||(tab==='today'&&!hx.read);
   if(hx){const t=hx.ts?.toDate?hx.ts.toDate():null;
     hb.innerHTML=`<div class="h"><b>📋 인수인계</b><span class="dim">${esc(hx.from)} → ${esc(hx.to)}${t?` · ${fd(ymd(t))} ${t.toTimeString().slice(0,5)}`:''} · ${hx.read?`확인 ${esc(hx.readBy||'')}`:'<b style="color:var(--alert-ink)">미확인</b>'}</span>
       ${!hx.read&&hx.to.includes(ME.name)?`<button class="btn pri" id="hoRead">확인</button>`:''}<button class="btn" id="hoAll" style="margin-left:auto">전체 보기</button></div><div class="x">${esc(hx.text)}</div>`;
@@ -435,10 +615,7 @@ function renderTop(){
   const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0),gs=f=>G.reduce((x,g)=>x+(+g[f]||0),0);
   const stG=G.length?`<tr><td><b>일반</b></td><td>${gs('m')+gs('f')}</td><td>${gs('m')}</td><td>${gs('f')}</td><td>0</td><td>${G.length}</td><td>${G.filter(g=>(+g.m||0)+(+g.f||0)>=4).length}</td></tr>`:'';
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}${stG}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
-  $('#todo').innerHTML=todos().sort((a,b)=>a.id.startsWith('__')?-1:b.id.startsWith('__')?1:a.id.localeCompare(b.id,'ko',{numeric:true})).map(x=>`<button data-c="${esc(x.id)}">${esc(x.t)}</button>`).join('');
-  const byLine=(a,b)=>(LINES().indexOf(a.line)-LINES().indexOf(b.line))||a.id.localeCompare(b.id,'ko',{numeric:true});
-  $('#mat').innerHTML=S.cages.filter(c=>c.mate||c.wait).sort((a,b)=>byLine(a,b)||((a.mate?0:1)-(b.mate?0:1))).map(c=>`<button data-c="${esc(c.id)}"><b>${c.id}</b> · ${pairS(c)} · ${c.mate?`메이팅 D${days(c.mate.start)}`:`출산 예정 ${md(addD(c.wait,GEST[0]))}~${md(addD(c.wait,GEST[1]))}`}</button>`).join('');
-  $$('#todo button,#mat button').forEach(b=>b.onclick=()=>b.dataset.c==='__report'?reportForm():b.dataset.c==='__ntbc'?ntbcForm():openCage(b.dataset.c));
+  $('#stat').hidden=tab!=='board';$('#todo').hidden=$('#mat').hidden=true;
 }
 /* Mating cage: ♂♀ 한 쌍마다 결혼 쥐 그림 1개, 짝 없이 남는 개체는 쥐 아이콘 */
 function mateImg(c){const n=Math.max(1,Math.min(c.m,c.f)),k=Math.min(n,4),h=k>1?36:54;
@@ -453,17 +630,25 @@ function mice(c){
 }
 function renderBoard(){
   if(filt!=='전체'&&filt!=='일반'&&!LINES().includes(filt))filt='전체';
-  let h=`<div class="filters">${['전체',...LINES(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?(filt==='일반'?'<button class="btn pri" id="gAdd" style="margin-left:auto">+ 일반 cage</button>':'<button class="btn pri" id="newCage" style="margin-left:auto">+ 새 cage</button>'):''}</div>`;
-  (filt==='전체'?LINES():filt==='일반'?[]:[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
-    const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
-    h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(c=>{const s=status(c);
-      return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="id">${cname(c)}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.mate||c.wait?`<span class="dim">${pairS(c)}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${notesOf(c).length?`<span class="memo">📝 ${esc(notesOf(c)[0].text)}${notesOf(c).length>1?` (+${notesOf(c).length-1})`:''}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?mateImg(c):mice(c)}</button>`}).join('')}</div></div>`;
-  }));
-  if(filt==='전체'||filt==='일반')h+=genHTML();
-  $('#view').innerHTML=h;
+  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB로 찾기 · 26.04.06 · 0406 · 4/6" aria-label="DOB 검색"><div class="filters">${['전체',...LINES(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?(filt==='일반'?'<button class="btn pri" id="gAdd" style="margin-left:auto">+ 일반 cage</button>':'<button class="btn pri" id="newCage" style="margin-left:auto">+ 새 cage</button>'):''}</div>`;
+  h+='<div id="bl"></div>';$('#view').innerHTML=h;drawBoard();
+  $('#bq').oninput=()=>{BQ=$('#bq').value;drawBoard()};
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
   if($('#newCage'))$('#newCage').onclick=newCageForm;
   if($('#gAdd'))$('#gAdd').onclick=()=>generalForm(-1);
+}
+const outS=c=>S.cages.filter(x=>x.mate&&x.mate.from===c.id).map(x=>`Mating 나감 ♂${x.mate.n} → ${x.id}`).join(' · ');
+function cardH(c){const s=status(c),out=outS(c),src=c.mate&&S.cages.find(x=>x.id===c.mate.from);
+  return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="lab">${labH(c)}</span>${alpH(c)}<span class="cid">${c.name?esc(c.name)+' · ':''}${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.wait&&!c.mate&&pairS(c)?`<span class="dim">아빠 ${pairS(c).split(' × ')[0]}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${notesOf(c).length?`<span class="memo">📝 ${esc(notesOf(c)[0].text)}${notesOf(c).length>1?` (+${notesOf(c).length-1})`:''}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?mateImg(c)+`<span class="dim"><b class="ma">♂ ${c.mate.n}</b> (from ${esc(c.mate.from)}${src?' · DOB '+dobS(src):''})</span>`:mice(c)}${out?`<span class="dim" style="font-size:11.5px">${esc(out)}</span>`:''}</button>`}
+function drawBoard(){const Q=parseQ(BQ);let h='';
+  if(Q){const cs=S.cages.filter(c=>shown(c)&&(filt==='전체'||c.line===filt)&&cageHit(c,Q)).sort((a,b)=>a.id.localeCompare(b.id,'ko',{numeric:true}));
+    h=`<div class="dim" style="margin-bottom:6px">${esc(BQ)} · ${cs.length} cage</div><div class="cards">${cs.map(cardH).join('')}</div>`}
+  else (filt==='전체'?LINES():filt==='일반'?[]:[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
+    const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
+    h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(cardH).join('')}</div></div>`;
+  }));
+  if(!Q&&(filt==='전체'||filt==='일반'))h+=genHTML();
+  $('#bl').innerHTML=h;
   $$('[data-g]').forEach(b=>b.onclick=()=>openGen(+b.dataset.g));
   $$('[data-gbulk]').forEach(b=>b.onclick=()=>genBulk(b.dataset.gbulk));
   $$('.card[data-c]').forEach(b=>b.onclick=()=>openCage(b.dataset.c));
@@ -481,14 +666,14 @@ function renderTree(){
 }
 function renderLog(){
   $('#view').innerHTML=`<div class="qa g2" style="margin-bottom:6px"><span class="qg">파일</span><button class="btn pri" id="xlsL">인수인계 엑셀</button><button class="btn pri" id="rpt">동물센터 월간 보고</button>${isAdmin()?'<button class="btn" id="bkB">백업 · 되돌리기</button>':''}</div>
-  <div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button>${canEdit()?'<button class="btn" id="opB">작업 붙여넣기</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>`<tr><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`).join('')}</table></div>`;
+  <div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button>${canEdit()?'<button class="btn" id="opB">작업 붙여넣기</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}${e.chg&&e.type!=='상태 변경'?`<details><summary class="dim more"><span class="o">▸ 바뀐 것</span><span class="c">▾ 접기</span></summary><span class="dim">${esc(deltaText(e.chg))}</span></details>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
   $('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;$('#snB').onclick=snapForm;if($('#opB'))$('#opB').onclick=opsForm;
   $$('[data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev));
   if(isAdmin())$('#bkB').onclick=async()=>{const P=$('#bkP');P.textContent='불러오는 중…';let L;try{L=await Store.listBackups()}catch(e){P.textContent='백업 목록 못 불러옴';return}
     P.innerHTML=`<div class="ox"><table class="log"><tr><th>날짜</th><th>저장한 사람</th><th></th></tr>${L.map((b,i)=>`<tr><td>${esc(b.id)}</td><td>${esc(b.by||'')}</td><td><button class="btn" data-bd="${i}">내려받기</button> <button class="btn" data-br="${i}">이 날로 되돌리기</button></td></tr>`).join('')||'<tr><td colspan=3>아직 없음</td></tr>'}</table></div>`;
     $$('[data-bd]').forEach(x=>x.onclick=()=>{const b=L[+x.dataset.bd],u=URL.createObjectURL(new Blob([JSON.stringify(b,null,1)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=`star-mouse-backup-${b.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)});
     $$('[data-br]').forEach(x=>x.onclick=()=>{const b=L[+x.dataset.br];x.outerHTML=`<span>cage 현황을 ${esc(b.id)} 상태로 바꿀까요? <button class="btn pri" id="brY">되돌리기</button></span>`;
-      $('#brY').onclick=async()=>{if(await commit(st=>{Object.keys(st).forEach(k=>delete st[k]);Object.assign(st,clone(b.main))},[{cage:'백업',type:'되돌리기',text:b.id+' 상태로'}]))toast('되돌림')}})};
+      $('#brY').onclick=async()=>{if(await commit(st=>{Object.keys(st).forEach(k=>delete st[k]);Object.assign(st,clone(b.main))},[{cage:'백업',type:'되돌리기',text:`${b.id} 상태로 · ${deltaText(stDelta(S,b.main)).slice(0,300)||'바뀐 것 없음'}`}]))toast('되돌림')}})};
 }
 function renderHandover(){
   const [w,n]=sched(), evs=EVENTS.filter(e=>e.date>=w.week), N=ntbc();
@@ -575,7 +760,8 @@ function evForm(id,back){
    <textarea id="eX" maxlength="400"></textarea>
    <label id="eSyncL" hidden><input type="checkbox" id="eSync" checked> <span id="eSyncT"></span>도 같이 바꾸기</label>
    <div class="dim">기록만 바뀌어요. 마리수가 틀렸으면 cage에서 '실사'로 고쳐주세요.</div>
-   <div class="row"><button class="btn pri" id="eOk">저장</button><button class="btn" id="eDel">지우기</button><span id="eQ"></span></div></div>`;
+   <div class="row"><button class="btn pri" id="eOk">저장</button><button class="btn" id="eDel">지우기</button>${(e.chg||EVENTS.some(x=>x.chg&&x.grp&&x.grp===e.grp))&&!undoneOf(e)?'<button class="btn" id="eUndo">이 저장 되돌리기</button>':''}<span id="eQ"></span></div></div>`;
+  if($('#eUndo'))$('#eUndo').onclick=async()=>{if(await undoSave(e.id))$('#dlg').close()};
   $('#eX').value=e.text||'';
   const upd=()=>{const s=evSync(e,$('#fD').value);$('#eSyncL').hidden=!s;if(s)$('#eSyncT').textContent=s.lab};
   $('#fD').onchange=upd;upd();
@@ -597,8 +783,10 @@ function render(){
   const pc=MEMBERS.filter(m=>m.role==='pending').length;
   $('#tabMembers').innerHTML=pc?`멤버 <span style="color:var(--alert-ink);font-weight:700">승인 대기 ${pc}</span>`:'멤버';
   if(!S){renderEmpty();return}
+  const ae=document.activeElement,aid=ae&&ae.id&&$('#view').contains(ae)?ae.id:null,sel=aid&&typeof ae.selectionStart==='number'?[ae.selectionStart,ae.selectionEnd]:null;
   renderTop();
-  ({board:renderBoard,tree:renderTree,general:renderBoard,log:renderLog,handover:renderHandover,rules:renderRules,members:renderMembers})[tab]();
+  ({today:renderToday,board:renderBoard,tree:renderTree,general:renderBoard,log:renderLog,handover:renderHandover,rules:renderRules,members:renderMembers})[tab]();
+  if(aid){const n=document.getElementById(aid);if(n&&n!==document.activeElement){n.focus();try{sel&&n.setSelectionRange(...sel)}catch(e){}}}
   refreshDlg();
 }
 
@@ -641,7 +829,7 @@ function openCage(id,act){
     hli=h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${evB(h)}${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`;
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}</div>
    <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
-   ${canEdit()?`${ACTG.map(([g,ks,cl])=>{const b=ACTS.filter(([k])=>ks.includes(k)&&can(c,k)).sort((x,y)=>ks.indexOf(x[0])-ks.indexOf(y[0]));return b.length?`<div class="qa ${cl}"><span class="qg">${g}</span>${b.map(([k,t])=>`<button data-a="${k}" class="${act===k||(!act&&k===nx)?'on':''}">${t}</button>`).join('')}</div>`:''}).join('')}<div id="form"></div>`:''}
+   ${canEdit()?`${ACTG.map(([g,ks,cl])=>{const b=ACTS.filter(([k])=>ks.includes(k)&&can(c,k)).sort((x,y)=>ks.indexOf(x[0])-ks.indexOf(y[0]));return b.length?`<div class="qa ${cl}"><span class="qg">${g}</span>${b.map(([k,t])=>`<button data-a="${k}" class="${act===k?'on':''}">${t}</button>`).join('')}</div>`:''}).join('')}<div id="form"></div>`:''}
    ${indS(c)?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 개체 표시</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(indS(c)).replace(/ · /g,'<br>')}</div>`:''}
    ${notesOf(c).length?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="display:flex;flex-direction:column;gap:6px">${notesOf(c).map(n=>`<div style="background:var(--soft);border-radius:8px;padding:6px 10px;font-size:13.5px"><div class="dim">${n.t?fd(n.t.slice(0,10))+' '+n.t.slice(11):'이전 메모'}${n.by?' · '+esc(n.by):''}${n.ed?` · 수정 ${fd(n.ed.slice(0,10))} ${n.ed.slice(11)}${n.edBy&&n.edBy!==n.by?' '+esc(n.edBy):''}`:''}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div>`).join('')}</div>`:''}
    ${maleOnly?'':`<h4 style="margin:10px 0 4px;font-size:13.5px">${l.key} 출산 이력</h4>${listH(hist.filter(h=>h.kind!=='메이팅'),hli)}`}
@@ -840,7 +1028,7 @@ function actForm(c,a){
   if(a==='census'){
     h=`<div class="row">${num('fM','♂',c.m)}${num('fF','♀',c.f)}${c.pups?num('fP','새끼',c.pups.n):''}</div>${c.pups&&c.pups.unk?'<div class="tip">새끼 마릿수 미확인 → 센 숫자를 넣으면 확인됨으로 바뀜</div>':''}<input id="fMemo" placeholder="메모">`;
     ok=async()=>{const m=v('fM'),f=v('fF'),p=v('fP'),memo=$('#fMemo').value;const D=pickD();if(!D)return;
-      after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;delete c.pups.unk;if(!p)c.pups=null}fixMate(c)},[{cage:id,date:D,type:'실사',text:`♂${c.m}♀${c.f}${c.pups?' 새끼'+pupS(c.pups):''} → ♂${m}♀${f}${c.pups?' 새끼'+p:''} ${memo}`.trim()}]))};
+      after(await commit(st=>{const c=C(st,id);c.m=m;c.f=f;if(c.pups){c.pups.n=p;delete c.pups.unk;c.pups.cnt=D;if(!p)c.pups=null}fixMate(c)},[{cage:id,date:D,type:'실사',text:`♂${c.m}♀${c.f}${c.pups?' 새끼'+pupS(c.pups):''} → ♂${m}♀${f}${c.pups?' 새끼'+p:''} ${memo}`.trim()}]))};
   }
   F.innerHTML=`<div class="frm">${h}${DATED.includes(a)?dateIn():''}<div class="row"><button class="btn pri" id="fOk">저장</button></div></div>`;
   $('#fOk').onclick=ok;
@@ -1198,7 +1386,7 @@ function snapshot(){
       const t=indS(c);if(t)o.ind=t;const ns=lastN(c);if(ns.length)o.notes=ns;return o}),
     litters:S.litters.map(l=>[l.key,l.dob,l.mom||'',l.dad||'',l.ended?'종료':'']),
     general:(S.general||[]).map(g=>({no:g.no,owner:g.owner,strain:g.strain,dob:g.dob,m:+g.m||0,f:+g.f||0})),
-    events:EVENTS.slice(0,120).map(e=>[e.id,e.date,e.cage,e.type,e.text||'',e.by||''])};
+    events:EVENTS.slice(0,120).map(e=>[e.id,e.date,e.cage,e.type,e.text||'',e.by||'',undoneOf(e)?'되돌림됨':''])};
 }
 /* ops 하나씩 st에 적용하고 남길 기록을 돌려줌. 틀린 op는 Error */
 const OPS={
@@ -1218,7 +1406,7 @@ const OPS={
   ntbc:(st,o)=>{const sc=o.scope||'전체';if(!['전체','4마리↑'].includes(sc))throw new Error("scope는 '전체' 또는 '4마리↑'");const by=o.by||pairOn(o.date)||ME.nick;
     st.ntbcLog=[...(st.ntbcLog||[]),{date:o.date,scope:sc,by}].slice(-40);return {cage:'전체',type:'NTBC',text:`${sc} · ${by}${o.text?' · '+o.text:''}`}},
   census:(st,o)=>{const c=C(st,o.cage),a=`♂${c.m}♀${c.f}${c.pups?' 새끼'+c.pups.n:''}`;if(o.m!=null)c.m=o.m;if(o.f!=null)c.f=o.f;
-    if(c.pups&&o.pups!=null){c.pups.n=o.pups;delete c.pups.unk;if(!o.pups)c.pups=null}fixMate(c);return {type:'실사',text:`${a} → ♂${c.m}♀${c.f}${c.pups?' 새끼'+c.pups.n:''}${o.text?' '+o.text:''}`}},
+    if(c.pups&&o.pups!=null){c.pups.n=o.pups;delete c.pups.unk;c.pups.cnt=o.date;if(!o.pups)c.pups=null}fixMate(c);return {type:'실사',text:`${a} → ♂${c.m}♀${c.f}${c.pups?' 새끼'+c.pups.n:''}${o.text?' '+o.text:''}`}},
   death:(st,o)=>OPS._out(st,o,'사망'),exp:(st,o)=>OPS._out(st,o,'실험'),
   _out:(st,o,type)=>{const c=C(st,o.cage),m=Math.min(o.m||0,c.m),f=Math.min(o.f||0,c.f),p=c.pups?Math.min(o.pups||0,c.pups.n):0;if(!m&&!f&&!p)throw new Error('마리수 0');
     c.m-=m;c.f-=f;c.indM=inds(c,'m');c.indF=inds(c,'f');if(p){c.pups.n-=p;if(!c.pups.n)c.pups=null}fixMate(c);
@@ -1253,15 +1441,15 @@ function planOps(ops){
 async function applyOps(ops,note){
   const P=planOps(ops);if(P.bad)return {ok:false,rows:P.rows};
   const stOps=ops.filter(o=>!OP_EV.includes(o.op)),evs=P.rows.filter(r=>r.ev).map(r=>({...r.ev,via:'붙여넣기'}));
-  if(stOps.length){const ok=await commit(st=>{stOps.forEach(o=>OPS[o.op](st,{...o,date:o.date||todayS()}))},evs);if(!ok)return {ok:false,rows:P.rows}}
+  let undo=null;if(stOps.length){const ok=await commit(st=>{stOps.forEach(o=>OPS[o.op](st,{...o,date:o.date||todayS()}))},evs);if(!ok)return {ok:false,rows:P.rows};undo=typeof ok==='string'?ok:null}
   for(const o of ops.filter(o=>OP_EV.includes(o.op))){const e=EVENTS.find(x=>x.id===o.id);if(!e)continue;
     if(o.op==='delEvent')await editEv(e.id,null,null,{cage:e.cage,type:'기록 삭제',text:`${evS(e)}${e.by?' · 입력 '+e.by:''}${o.why?' · '+o.why:''}`});
     else{const p={ed:nowS(),edBy:ME.nick};['date','cage','type','text'].forEach(k=>{if(o[k]!==undefined)p[k]=o[k]});if(!e.orig)p.orig={date:e.date,cage:e.cage,type:e.type,text:e.text||''};
       await editEv(e.id,p,null,{cage:e.cage,type:'기록 수정',text:`[${evS(e)}] ${Object.keys(p).filter(k=>!['ed','edBy','orig'].includes(k)).map(k=>`${k} ${e[k]||'-'} → ${p[k]}`).join(' · ')}${o.why?' · '+o.why:''}`})}}
   if(note)logEv({cage:'전체',type:'작업 붙여넣기',text:note});
-  return {ok:true,rows:P.rows};
+  return {ok:true,rows:P.rows,undo};
 }
-window.starAgent={snapshot,preview:ops=>planOps(ops).rows.map(r=>(r.ok?'✓ ':'✗ ')+r.line),apply:applyOps,ops:Object.keys(OPS).filter(k=>k[0]!=='_').concat(OP_EV)};
+window.starAgent={snapshot,preview:ops=>planOps(ops).rows.map(r=>(r.ok?'✓ ':'✗ ')+r.line),apply:applyOps,undo:id=>undoSave(id),ops:Object.keys(OPS).filter(k=>k[0]!=='_').concat(OP_EV)};
 function snapForm(){
   CUR=null;const txt=JSON.stringify(snapshot());$('#dT').textContent='현황 보내기';
   $('#dB').innerHTML=`<div class="frm"><div class="tip">복사해서 Claude 채팅에 붙여넣기 + 오늘 한 작업(라벨 사진 등)을 같이 보내면, Claude가 '작업 붙여넣기'에 넣을 내용을 만들어 줌. 백업 파일보다 짧게 cage·litter·최근 기록만 담김.</div>
@@ -1424,7 +1612,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261116141321';
+let NEWV=0;const VER='20261117005155';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
@@ -1435,7 +1623,7 @@ function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==wh
 function go(t){tab=t;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('#dX').onclick=()=>$('#dlg').close();
-$('#dlg').addEventListener('close',()=>{CUR=null});
+$('#dlg').addEventListener('close',()=>{CUR=null;const t=$('#toast');if(t.parentNode!==document.body)document.body.appendChild(t)});
 $('#meBtn').onclick=()=>profileForm(false);
 $('#gIn').onclick=()=>Store.login().catch(e=>toast('로그인 실패'));
 $('#pOut2').onclick=()=>Store.logout();

@@ -10,6 +10,13 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 - **기록 탭 → `현황 보내기`**: 지금 cage·litter·최근 기록 120개를 JSON으로 복사 (보기 전용도 가능)
 - **기록 탭 → `작업 붙여넣기`**: Claude가 만든 JSON을 붙여넣고 미리보기 → 저장 (당번·관리자). 한 줄이라도 ✗면 저장 안 됨. 저장된 기록에는 `via:"붙여넣기"`가 붙고, 마지막에 `작업 붙여넣기` 기록(note)이 남는다.
 - 크롬이 연결된 세션(데스크톱 앱 + Claude in Chrome)이면 사이트 콘솔에서 `starAgent.snapshot()`, `starAgent.preview(ops)`, `await starAgent.apply(ops, note)`를 바로 쓴다. 저장 전에 preview 결과를 유진에게 보여주고 확인받는다.
+- `apply` 결과의 `undo`가 되돌리기 id다. 잘못 넣었으면 `await starAgent.undo(id)`로 그 저장 직전 상태로 돌린다 (그 cage를 그 뒤 다른 저장이 바꿨으면 막힘 → op로 직접 고침). snapshot events의 기록 id를 넣어도 같은 저장 묶음을 찾아 되돌린다. delEvent·editEvent는 되돌리기 대상이 아님.
+
+## 사이트 화면 (유진이 동물실에서 보는 것)
+
+- 첫 화면 **오늘 할 일**: 수컷 빼기(Mating D14~) · 출산 확인(Mating 시작 + 19일~, [출산 n마리]/[아직]/[출산 없음]) · 새끼 다시 세기(출산 D14, 다시 센 날은 `pups.cnt`) · 암수분리(출산 + 35일) · NTBC 교체(마지막 전체 교체 + 7일) · 인수인계 미확인 · 출산 기록 없는 새끼. 지난 일은 빨강으로 위에. [아직]은 `snooze`에 오늘 날짜로 남고 기록도 남는다.
+- 케이지 카드 제목은 라벨지처럼 **`♀ 26.04.06 / ♂ 26.06.21`** (Mating 중이면 데려온 수컷 DOB), cage id는 작게 아래. 같은 line에 같은 DOB cage가 여럿이면 `라벨에 1-D 적기`가 뜬다. 유진이 라벨 DOB로 말하면 검색칸(26.04.06 · 0406 · 4/6)으로 같은 cage를 찾게 하면 된다.
+- 모든 저장은 첫 기록에 `chg`(바뀐 cage·litter 전후)가 붙고, 기록 없이 상태만 바뀌면 `상태 변경` 기록이 자동으로 남는다 (입력자 by 포함). 되돌리면 `되돌림` 기록(`undoOf`)이 남고 원래 기록은 줄을 그어 보인다. snapshot events 7번째 칸 `되돌림됨`이면 이미 되돌린 저장이니 다시 반영하지 않는다.
 
 ## 순서
 
@@ -40,7 +47,7 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 | `noBirth` | cage, date | 출산 대기 해제 |
 | `mateStart` | cage, start, wait?, text? | Mating 시작일(또는 출산 대기 기준일) 고침. Mating·대기·새끼 다 없는 cage에 `"wait":true`면 start 기준으로 출산 대기를 새로 켬 |
 | `ntbc` | date, scope (`"전체"` 또는 `"4마리↑"`), by?, text? | NTBC 교체: ntbcLog에 {date, scope, by} 추가 + NTBC 기록. by 생략하면 그 날짜 당번 2명 (예: `"유진·재혁"`) |
-| `census` | cage, m?, f?, pups?, text? | 실제 센 마리수로 맞춤 (실사) |
+| `census` | cage, m?, f?, pups?, text?, date? | 실제 센 마리수로 맞춤 (실사). pups를 넣으면 `pups.cnt`에 그 날짜가 남아 '새끼 다시 세기' 할 일이 사라짐 |
 | `death` / `exp` | cage, m?, f?, pups?, text, date | 빼기 (사망 / 실험) |
 | `wean` | cage, date, rows:[{sx:"♂",n},{sx:"♀",n}] | 새끼 암수 분리 → 새 cage |
 | `move` | cage, m?, f?, to ("new" 또는 cage id) | 이동 · 새 cage |
