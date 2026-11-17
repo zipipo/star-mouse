@@ -821,10 +821,10 @@ function openCage(id,act){
   const evs=EVENTS.filter(e=>!MATE_T.includes(e.type)&&(e.cage===c.id||e.cage===c.litter||idRe.test(e.text||''))).slice(0,40);
   const mates=EVENTS.filter(e=>['메이팅','출산','수컷 빼기','출산 취소'].includes(e.type)&&lit(c.litter)&&(e.cage===c.id||idRe.test(e.text||'')||(S.cages.find(x=>x.id===e.cage)?.litter===c.litter)));
   const fmtMate=e=>{if(e.type!=='메이팅')return {head:`${fd(e.date)} ${e.cage} ${e.type}`,body:slim(e.text)};
-    const end=EVENTS.filter(x=>x.type==='수컷 빼기'&&x.cage===e.cage&&x.date>=e.date).map(x=>x.date).sort()[0];
-    return {head:`${fd(e.date)}~${end?md(end):md(addD(e.date,MATE_DAYS))+' 예정'} ${e.cage} 메이팅`,body:slim(e.text)}};
+    const st=mateDate(e),nx=EVENTS.filter(x=>x.type==='메이팅'&&x.cage===e.cage&&mateDate(x)>st).map(mateDate).sort()[0],end=EVENTS.filter(x=>x.type==='수컷 빼기'&&x.cage===e.cage&&x.date>=st&&(!nx||x.date<nx)).map(x=>x.date).sort()[0];
+    return {head:`${fd(st)}~${end?md(end):md(addD(st,MATE_DAYS))+' 예정'} ${e.cage} 메이팅`,body:slim(e.text)}};
   const maleOnly=c.f===0&&!c.pups;
-  const hist=[...mates.filter(e=>e.type!=='수컷 빼기').map(e=>({id:e.id,date:e.date,...fmtMate(e),kind:e.type})),...(l.hist||[]).map((h,i)=>({...h,hi:i,head:`${fd(h.date)} ${h.text}`,old:1,kind:h.text.startsWith('메이팅')?'메이팅':'출산'}))].filter(h=>!maleOnly||h.kind==='메이팅').sort((a,b)=>b.date.localeCompare(a.date));
+  const hist=[...mates.filter(e=>e.type!=='수컷 빼기').map(e=>({id:e.id,date:mateDate(e),...fmtMate(e),kind:e.type})),...(l.hist||[]).map((h,i)=>({...h,hi:i,head:`${fd(h.date)} ${h.text}`,old:1,kind:h.text.startsWith('메이팅')?'메이팅':'출산'}))].filter(h=>!maleOnly||h.kind==='메이팅').sort((a,b)=>b.date.localeCompare(a.date));
   const src=c.mate&&S.cages.find(x=>x.id===c.mate.from),evB=x=>canEdit()&&x.id?` <button class="evx" data-ev="${esc(x.id)}">수정</button>`:canEdit()&&x.hi!=null?` <button class="evx" data-hi="${x.hi}">수정</button>`:'',
     hli=h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${evB(h)}${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`;
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}</div>
@@ -1483,6 +1483,11 @@ const dotD=s=>s?s.replace(/-/g,'.'):'';
 const WK='일월화수목금토';
 /* cage id → litter key (FRG 5-2-A → FRG 5-2) */
 const litOf=id=>{const c=S.cages.find(x=>x.id===id);if(c)return c.litter;let b='';S.litters.forEach(l=>{if((id===l.key||String(id).startsWith(l.key+'-'))&&l.key.length>b.length)b=l.key});return b};
+/* 메이팅 기록의 날짜 대신 cage의 지금 Mating 시작일(mate.start → wait → 출산 때 저장한 fromWait).
+   정보 수정으로 시작일을 고쳐도 기록 날짜는 그대로라서. 그 cage의 마지막 메이팅 기록에만 적용 (지난 회차는 기록 날짜) */
+function mateDate(e){if(e.type!=='메이팅')return e.date;const c=S.cages.find(x=>x.id===e.cage);if(!c)return e.date;
+  const last=EVENTS.filter(x=>x.type==='메이팅'&&x.cage===e.cage&&!undoneOf(x)).map(x=>x.date).sort().pop();if(e.date!==last)return e.date;
+  const s=c.mate?c.mate.start:c.wait?c.wait:c.pups&&c.pups.fromWait&&c.pups.born>=e.date?c.pups.fromWait:null;return s||e.date}
 const LEG_INFO=['사망','안락사','실험','실사','성별 수정','반입'], LEG_PLAN=['메이팅','수컷 빼기','출산','출산 없음','출산 취소','출산 대기','새끼 암수 분리','합사','이동','새 cage'];
 const legTxt=t=>String(t||'').replace(/\s*\(DOB [^)]*\)/g,'').replace(/ from /g,' ').trim();
 function legRows(L){
@@ -1498,7 +1503,7 @@ function legRows(L){
       ...cs.flatMap(c=>notesOf(c).map(n=>`${n.t?dotD(n.t.slice(0,10))+' ':''}${n.text}${cs.length>1?` (${c.id.slice(l.key.length+1)})`:''}`))];
     const histD=new Set((l.hist||[]).map(h=>h.date));
     const plan=[...(l.hist||[]).map(h=>({date:h.date,s:`${dotD(h.date)} ${h.text}`})),
-      ...evs.filter(e=>LEG_PLAN.includes(e.type)&&!(histD.has(e.date)&&/메이팅|출산/.test(e.type))).map(e=>({date:e.date,s:line(e)})),
+      ...evs.filter(e=>LEG_PLAN.includes(e.type)&&!(histD.has(e.date)&&/메이팅|출산/.test(e.type))).map(e=>{const x={...e,date:mateDate(e)};return {date:x.date,s:line(x)}}),
       ...EVENTS.filter(e=>e.type==='새끼 암수 분리'&&litOf(e.cage)!==l.key&&String(e.text).includes(l.key+'-')).map(e=>({date:e.date,s:`${dotD(e.date)} 암수 분리 ${legTxt(e.text).split(' / ').filter(t=>t.startsWith(l.key+'-')).map(t=>t.slice(l.key.length+1)).join(' / ')}`})),
       ...cs.filter(c=>c.mate||c.wait).map(c=>({date:'9',s:`진행 중: ${status(c).t}${cs.length>1?` (${c.id.slice(l.key.length+1)})`:''}`}))]
       .sort((a,b)=>a.date.localeCompare(b.date)).map(x=>x.s);
@@ -1612,7 +1617,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117005155';
+let NEWV=0;const VER='20261117023531';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
