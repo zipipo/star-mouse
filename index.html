@@ -84,7 +84,7 @@ nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
 .tree>ul{border-left:0;padding-left:0}
 .tree li{position:relative;padding:3px 0}
 .tree ul ul li::before{content:"";position:absolute;left:-22px;top:14px;width:16px;border-top:1px solid var(--line)}
-.node{display:inline-flex;gap:7px;align-items:baseline;padding:3px 9px;border-radius:8px;font-size:13px;flex-wrap:wrap}
+.node{display:inline-flex;gap:2px 7px;align-items:center;padding:3px 9px;border-radius:8px;font-size:13px;flex-wrap:wrap;max-width:100%}
 .node.FRG{background:var(--frg)}.node.FAH{background:var(--fah)}.node.end{background:var(--soft)}
 .log{width:100%;border-collapse:collapse;font-size:13px}
 .log td,.log th{padding:6px 8px 6px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -126,7 +126,8 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .tip{background:var(--blue);border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.5}
 .evx{border:0;background:none;color:var(--sub);font-size:12px;padding:0 4px;text-decoration:underline;cursor:pointer}
 .rules h4{margin:14px 0 4px;font-size:14px}.rules ul{margin:0;padding-left:18px}.rules li{margin:2px 0}
-.node.mt{background:#fff;border:1.5px dashed #f2a7c3;cursor:pointer}.node .pp{font-size:12px;background:#fff9;border-radius:6px;padding:0 5px}
+.node.mt{display:flex;height:auto;margin-left:0;background:var(--bg);border:1.5px dashed #f2a7c3;cursor:pointer;padding:5px 9px}.node.mt .dim{flex-basis:100%}
+@media (max-width:480px){.tree ul{padding-left:14px}.tree ul ul li::before{left:-14px;width:10px}}.node .pp{font-size:12px;background:#fff9;border-radius:6px;padding:0 5px}
 /* 오늘 할 일 · 되돌리기 · DOB 라벨 */
 #toast{display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100vw - 24px)}#toast span{flex:1;min-width:0}
 #toast button{border:0;border-radius:99px;background:var(--peach-2);color:var(--peach-ink);font-weight:700;font-size:14px;padding:0 16px;min-height:44px;white-space:nowrap;flex:none}
@@ -508,7 +509,10 @@ const labH=c=>labParts(c).map(([s,d])=>`${s?`<span class="${s==='♂'?'ma':'fe'}
 const shown=c=>total(c)>0||c.mate||c.wait;
 /* 같은 line에 라벨 DOB가 같은 cage가 여럿이면 알파벳을 라벨에 적게 */
 const dupAlpha=c=>{const k=labS(c);return S.cages.filter(x=>x.line===c.line&&shown(x)&&labS(x)===k).length>1?c.id.slice(c.line.length+1):''};
-const alpH=c=>{const a=dupAlpha(c);return a?`<span class="alp">라벨에 ${esc(a)} 적기</span>`:''};
+const alpH=c=>{const a=dupAlpha(c);return !a?'':c.labW===a?`<span class="alp" style="font-size:12px;font-weight:700;opacity:.7">라벨 ${esc(a)}</span>`:`<span class="alp">라벨에 ${esc(a)} 적기</span>`};
+/* cage 창: 같은 DOB cage가 여럿이면 라벨에 알파벳 적고 [적었음] */
+const labBox=c=>{const a=dupAlpha(c);if(!a)return '';return c.labW===a?`<div class="dim" style="margin-top:4px">라벨에 ${esc(a)} 적음 ✓</div>`:
+  `<div class="tip row" style="margin-top:6px;justify-content:space-between"><span>같은 DOB cage가 여럿 → 라벨에 <b style="font-size:16px">${esc(a)}</b> 적기</span>${canEdit()?`<button class="btn pri" id="labW" style="min-height:40px">적었음</button>`:''}</div>`};
 /* DOB 검색: 26.04.06 · 260406 · 0406 · 4/6 · 4.6. 글자가 있으면 cage id·이름 검색 */
 function parseQ(q){q=(q||'').trim();if(!q)return null;if(/[A-Za-z가-힣]/.test(q))return {txt:q.toLowerCase()};
   const p=q.split(/\D+/).filter(Boolean);let y=null,m,d;
@@ -666,8 +670,8 @@ function renderTree(){
 }
 function renderLog(){
   $('#view').innerHTML=`<div class="qa g2" style="margin-bottom:6px"><span class="qg">파일</span><button class="btn pri" id="xlsL">인수인계 엑셀</button><button class="btn pri" id="rpt">동물센터 월간 보고</button>${isAdmin()?'<button class="btn" id="bkB">백업 · 되돌리기</button>':''}</div>
-  <div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button>${canEdit()?'<button class="btn" id="opB">작업 붙여넣기</button>':''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}${e.chg&&e.type!=='상태 변경'?`<details><summary class="dim more"><span class="o">▸ 바뀐 것</span><span class="c">▾ 접기</span></summary><span class="dim">${esc(deltaText(e.chg))}</span></details>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
-  $('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;$('#snB').onclick=snapForm;if($('#opB'))$('#opB').onclick=opsForm;
+  ${isAdmin()?'<div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button><button class="btn" id="opB">작업 붙여넣기</button></div>':''}<div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${EVENTS.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}${e.chg&&e.type!=='상태 변경'?`<details><summary class="dim more"><span class="o">▸ 바뀐 것</span><span class="c">▾ 접기</span></summary><span class="dim">${esc(deltaText(e.chg))}</span></details>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
+  $('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;if($('#snB'))$('#snB').onclick=snapForm;if($('#opB'))$('#opB').onclick=opsForm;
   $$('[data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev));
   if(isAdmin())$('#bkB').onclick=async()=>{const P=$('#bkP');P.textContent='불러오는 중…';let L;try{L=await Store.listBackups()}catch(e){P.textContent='백업 목록 못 불러옴';return}
     P.innerHTML=`<div class="ox"><table class="log"><tr><th>날짜</th><th>저장한 사람</th><th></th></tr>${L.map((b,i)=>`<tr><td>${esc(b.id)}</td><td>${esc(b.by||'')}</td><td><button class="btn" data-bd="${i}">내려받기</button> <button class="btn" data-br="${i}">이 날로 되돌리기</button></td></tr>`).join('')||'<tr><td colspan=3>아직 없음</td></tr>'}</table></div>`;
@@ -828,7 +832,7 @@ function openCage(id,act){
   const src=c.mate&&S.cages.find(x=>x.id===c.mate.from),evB=x=>canEdit()&&x.id?` <button class="evx" data-ev="${esc(x.id)}">수정</button>`:canEdit()&&x.hi!=null?` <button class="evx" data-hi="${x.hi}">수정</button>`:'',
     hli=h=>`<li><b style="font-weight:600">${esc(h.head)}</b>${evB(h)}${h.body?`<br><span class="dim">${esc(h.body)}</span>`:''}</li>`;
   $('#dB').innerHTML=`<div class="dim">${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일 · 엄마 ${esc(l.mom)}${l.dad?' · 아빠 '+l.dad:''}${c.mate?` · ♂ ${c.mate.n} from ${c.mate.from}${src?` (DOB ${dobS(src)})`:''}`:''}</div>
-   <div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
+   ${labBox(c)}<div style="margin:8px 0">${mice(c)}${s?`<span class="st${s.late?' late':''}" style="font-size:13px">${s.t}</span>`:''}</div>
    ${canEdit()?`${ACTG.map(([g,ks,cl])=>{const b=ACTS.filter(([k])=>ks.includes(k)&&can(c,k)).sort((x,y)=>ks.indexOf(x[0])-ks.indexOf(y[0]));return b.length?`<div class="qa ${cl}"><span class="qg">${g}</span>${b.map(([k,t])=>`<button data-a="${k}" class="${act===k?'on':''}">${t}</button>`).join('')}</div>`:''}).join('')}<div id="form"></div>`:''}
    ${indS(c)?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 개체 표시</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${esc(indS(c)).replace(/ · /g,'<br>')}</div>`:''}
    ${notesOf(c).length?`<h4 style="margin:10px 0 4px;font-size:13.5px">📝 메모</h4><div style="display:flex;flex-direction:column;gap:6px">${notesOf(c).map(n=>`<div style="background:var(--soft);border-radius:8px;padding:6px 10px;font-size:13.5px"><div class="dim">${n.t?fd(n.t.slice(0,10))+' '+n.t.slice(11):'이전 메모'}${n.by?' · '+esc(n.by):''}${n.ed?` · 수정 ${fd(n.ed.slice(0,10))} ${n.ed.slice(11)}${n.edBy&&n.edBy!==n.by?' '+esc(n.edBy):''}`:''}</div><div style="white-space:pre-wrap">${esc(n.text)}</div></div>`).join('')}</div>`:''}
@@ -838,6 +842,7 @@ function openCage(id,act){
    <h4 style="margin:10px 0 4px;font-size:13.5px">이 cage 기록</h4>
    ${listH(evs,(e,k)=>`<li${k===0&&e.date===todayS()?' style="background:var(--new);border-radius:6px;padding:2px 6px"':''}><b style="font-weight:600">${fd(e.date)} ${esc(e.type)}</b> ${esc(slim(e.text))} <span class="dim">${esc(e.by)}</span>${evB(e)}</li>`)}`;
   $$('[data-a]').forEach(b=>b.onclick=()=>openCage(c.id,b.dataset.a));
+  if($('#labW'))$('#labW').onclick=async()=>{const a=dupAlpha(c);if(await commit(st=>{C(st,c.id).labW=a},[{cage:c.id,type:'라벨',text:`알파벳 ${a} 적음`}]))openCage(c.id)};
   $$('#dB [data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev,()=>openCage(c.id)));
   $$('#dB [data-hi]').forEach(b=>b.onclick=()=>histForm(l.key,+b.dataset.hi,()=>openCage(c.id)));
   if(act)actForm(c,act);
@@ -1458,7 +1463,7 @@ function snapForm(){
   $('#dlg').showModal();
 }
 function opsForm(){
-  if(!canEdit())return;CUR=null;$('#dT').textContent='작업 붙여넣기';
+  if(!isAdmin())return;CUR=null;$('#dT').textContent='작업 붙여넣기';
   $('#dB').innerHTML=`<div class="frm"><div class="tip">Claude가 만든 작업 목록(JSON)을 붙여넣고 미리보기 → 저장. 한 줄이라도 틀리면 저장 안 됨.</div>
     <textarea id="opT" style="min-height:140px;font-size:12px" placeholder='{"note":"11/16 유진·재혁 물 교체","ops":[{"op":"mateEnd","cage":"FRG 3-C","date":"2026-11-16"}]}'></textarea>
     <div class="row"><button class="btn" id="opP">미리보기</button><button class="btn pri" id="opA" disabled>저장</button></div><div id="opR"></div></div>`;
@@ -1617,7 +1622,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261117023531';
+let NEWV=0;const VER='20261117082714';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
