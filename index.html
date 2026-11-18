@@ -369,7 +369,7 @@ function stDelta(b,a){b=b||{};a=a||{};const o={cages:{},litters:{},keys:{}};let 
   [['cages','id'],['litters','key']].forEach(([f,k])=>{const B=by(b[f],k),A=by(a[f],k);new Set([...Object.keys(B),...Object.keys(A)]).forEach(id=>{if(!same(B[id],A[id])){o[f][id]={b:B[id]??null,a:A[id]??null};n++}})});
   new Set([...Object.keys(b),...Object.keys(a)]).forEach(k=>{if(k!=='cages'&&k!=='litters'&&!same(b[k],a[k])){o.keys[k]={b:b[k]??null,a:a[k]??null};n++}});
   return n?o:null}
-const KEYL={dutyNotes:'당번 메모',ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸'};
+const KEYL={dutyNotes:'당번 메모',ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸',snoozeTo:'오늘 할 일 미룸'};
 const CFL={name:'이름',notes:'메모',note:'메모',indM:'개체 표시',indF:'개체 표시',purpose:'용도',dad:'아빠',litter:'litter',line:'종류'};
 const csS=c=>`♂${c.m||0}♀${c.f||0}${c.pups?' 새끼'+pupS(c.pups):''}${c.mate?` Mating(♂${c.mate.n} ${fd(c.mate.start)})`:''}${c.wait?' 출산 대기 '+fd(c.wait):''}`;
 function deltaText(x){if(!x)return '';if(x.big)return x.text||'';const t=[];
@@ -543,14 +543,16 @@ const dobHit=(dob,Q)=>{if(!dob)return false;const [y,m,d]=dob.split('-').map(Num
 const cageHit=(c,Q)=>{if(!Q)return true;if(Q.txt)return (c.id+' '+(c.name||'')).toLowerCase().includes(Q.txt);const r=dobsOf(c);return [r.f,r.m,r.mm,r.pup].some(x=>dobHit(x,Q))};
 
 /* ===== 오늘 할 일: 앱 열면 첫 화면. 지난 일(빨강) → 오늘 일, 줄마다 바로 저장 ===== */
-const snz=k=>(S.snooze||{})[k]===todayS();
+/* 동물실은 월·목 또는 화·금에 감 → [다음에]는 다음 가는 날까지 숨김 (월→목, 화→금, 수→목, 목→월, 금→화, 토·일→월) */
+const nextVisit=(T=todayS())=>addD(T,[1,3,3,1,4,4,2][d(T).getDay()]);
+const snz=k=>(S.snoozeTo||{})[k]>todayS()||(S.snooze||{})[k]===todayS();
 function taskList(){
   const T=todayS(),o=[],up=[];
   const add=x=>{if(x.due>T){if(x.due<=addD(T,7))up.push(x);return}if(snz(x.key))return;x.late=x.redAfter<T;o.push(x)};
   const nb=ntbcNext();add({k:'ntbc',key:'ntbc:'+(nb?nb.next:''),cage:'전체',due:nb?nb.next:T,redAfter:nb?nb.next:T,t:'NTBC 교체',sub:(nb?`마지막 전체 ${md(nb.last)} → ${md(nb.next)}`:'전체 교체 기록 없음')+(N=>` · 전체 ${N.va} vial · 4마리↑ ${N.vb} vial`)(ntbc())});
   S.cages.forEach(c=>{
     if(c.mate){const due=addD(c.mate.start,MATE_DAYS);add({k:'mateEnd',key:'me:'+c.id+':'+c.mate.start,c,due,redAfter:due,t:'수컷 빼기',sub:`Mating ${md(c.mate.start)} 시작 · D${days(c.mate.start)} · ♂${c.mate.n} → ${c.mate.from}`})}
-    if(c.wait&&!c.pups){const due=addD(c.wait,GEST[0]),end=addD(c.wait,GEST[1]);add({k:'birth',key:'bi:'+c.id+':'+c.wait,c,due,redAfter:end,t:'출산 확인',sub:`출산 예정 ${md(due)}~${md(end)} (Mating ${md(c.wait)})`})}
+    if(c.wait&&!c.pups){const due=addD(c.wait,GEST[0]),end=addD(c.wait,GEST[1]);add({k:'birth',key:'bi:'+c.id+':'+c.wait,c,due,redAfter:'9999-12-31',t:'출산 확인',sub:`출산 예정 ${md(due)}~${md(end)} · Mating ${md(c.wait)} D${days(c.wait)}`})}
     if(c.pups){const p=days(c.pups.born),[a,b]=WEANL(c.line);
       if((!c.pups.cnt||c.pups.unk)&&p<a){const due=addD(c.pups.born,NO_TOUCH);add({k:'recount',key:'rc:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'새끼 다시 세기',sub:`출산 ${md(c.pups.born)} · D${p} · 지금 ${pupS(c.pups)}마리${c.pups.unk?' (미확인)':''}`})}
       const due=addD(c.pups.born,b);add({k:'wean',key:'wn:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'암수분리',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · D${p} (5주령 ${md(due)})`});
@@ -575,9 +577,9 @@ function renderToday(){
     if(x.k==='mateEnd')return `<div class="row">${dateI(x)}<button class="big pri" data-do="mateEnd" data-tk="${K}">뺐음</button></div>`;
     if(x.k==='birth'){const n=+tdv(x.key,'n',0),u=!!tdv(x.key,'unk',false);
       return `<div class="row"><button class="big sq" data-do="minus" data-tk="${K}" aria-label="한 마리 빼기">−</button><input class="n" type="number" min="0" inputmode="numeric" data-tk="${K}" data-f="n" value="${n}" aria-label="새끼 수"><button class="big sq" data-do="plus" data-tk="${K}" aria-label="한 마리 더">+</button><label class="ck"><input type="checkbox" data-tk="${K}" data-f="unk" ${u?'checked':''}> 작아서 못 셈</label>${dateI(x)}</div>
-        <div class="row"><button class="big pri" data-do="birth" data-tk="${K}" ${n>0||u?'':'disabled'}>출산 ${u?(n?'약 '+n:'?'):n}마리</button><button class="big" data-do="snooze" data-tk="${K}">내일 다시</button>${tdv(x.key,'nbq',false)?`<button class="big no" data-do="noBirth" data-tk="${K}">출산 대기 끝내기</button>`:`<button class="big" data-do="noBirthQ" data-tk="${K}">출산 없음</button>`}</div>`}
+        <div class="row"><button class="big pri" data-do="birth" data-tk="${K}" ${n>0||u?'':'disabled'}>출산 ${u?(n?'약 '+n:'?'):n}마리</button><button class="big" data-do="snooze" data-tk="${K}">다음에 (${'일월화수목금토'[d(nextVisit()).getDay()]})</button>${tdv(x.key,'nbq',false)?`<button class="big no" data-do="noBirth" data-tk="${K}">출산 대기 끝내기</button>`:`<button class="big" data-do="noBirthQ" data-tk="${K}">출산 없음</button>`}</div>`}
     if(x.k==='recount'){const n=tdv(x.key,'n',x.c.pups.n);return `<div class="row"><button class="big sq" data-do="minus" data-tk="${K}" aria-label="한 마리 빼기">−</button><input class="n" type="number" min="0" inputmode="numeric" data-tk="${K}" data-f="n" value="${n}" aria-label="새끼 수"><button class="big sq" data-do="plus" data-tk="${K}" aria-label="한 마리 더">+</button></div><div class="row">${dateI(x)}<button class="big pri" data-do="recount" data-tk="${K}">${n}마리</button></div>`}
-    if(x.k==='wean')return `<div class="row"><button class="big pri" data-do="wean" data-tk="${K}">암수분리</button><button class="big" data-do="snooze" data-tk="${K}">작음 · 내일 다시</button></div>`;
+    if(x.k==='wean')return `<div class="row"><button class="big pri" data-do="wean" data-tk="${K}">암수분리</button><button class="big" data-do="snooze" data-tk="${K}">작음 · 다음에 (${'일월화수목금토'[d(nextVisit()).getDay()]})</button></div>`;
     if(x.k==='ntbc')return `<div class="row">${dateI(x)}<select data-tk="${K}" data-f="scope" aria-label="범위">${['전체','4마리↑'].map(v=>`<option ${tdv(x.key,'scope','전체')===v?'selected':''}>${v}</option>`).join('')}</select></div>
         <div class="row"><input class="by" data-tk="${K}" data-f="by" value="${esc(tdv(x.key,'by',pairOn(tdv(x.key,'date',T))))}" placeholder="누가" aria-label="누가" style="flex:1;min-width:0"><button class="big pri" data-do="ntbc" data-tk="${K}">교체함</button></div>`;
     if(x.k==='ho')return `<div class="x" style="white-space:pre-wrap">${esc(x.ho.text)}</div>${x.ho.to.includes(ME.name)||isAdmin()?`<div class="row"><button class="big pri" data-do="hoRead" data-tk="${K}">확인</button></div>`:''}`;
@@ -609,7 +611,7 @@ async function taskDo(x,a){if(!x)return;const T=todayS(),V=TD[x.key]||{},D=V.dat
   if(a==='noBirth')return done(await doOp({op:'noBirth',cage:id,date:D},x.c.wait,'Mating 시작일'));
   if(a==='recount')return done(await doOp({op:'census',cage:id,pups:+tdv(x.key,'n',x.c.pups.n),date:D,text:`D${days(x.c.pups.born)} 다시 세기`},x.c.pups.born,'출산일'));
   if(a==='ntbc')return done(await doOp({op:'ntbc',date:D,scope:V.scope||'전체',by:(V.by??pairOn(D)).trim()||ME.nick}));
-  if(a==='snooze')return done(await commit(st=>{const z={};Object.entries(st.snooze||{}).forEach(([k,v])=>{if(v===T)z[k]=v});z[x.key]=T;st.snooze=z},[{cage:id||x.cage,date:T,type:x.t,text:x.k==='birth'?'아직 출산 안 함 · 내일 다시':'아직 · 내일 다시'}]));
+  if(a==='snooze'){const U=nextVisit(T);return done(await commit(st=>{const z={};Object.entries(st.snoozeTo||{}).forEach(([k,v])=>{if(v>T)z[k]=v});z[x.key]=U;st.snoozeTo=z;delete st.snooze},[{cage:id||x.cage,date:T,type:x.t,text:`${x.k==='birth'?'아직 출산 안 함':'아직 작음'} · ${md(U)}에 다시`}]))}
   if(a==='noteDone')return done(await commit(st=>{noteDone(st,x.note.id)},[{cage:x.note.cage||'당번',type:'당번 메모 했음',text:x.note.text}]));
   if(a==='wean')return openCage(id,'wean');
   if(a==='open')return openCage(id);
@@ -714,23 +716,14 @@ function renderTree(){
   $('#view').innerHTML='<div class="tree">'+LINES().map(L=>`<h3 style="font-size:14px;margin:12px 0 6px">${L}</h3><ul>${S.litters.filter(l=>l.line===L&&!S.litters.some(p=>p.key===l.mom)).map(node).join('')}</ul>`).join('')+'</div>';
   $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));$$('[data-mc]').forEach(b=>b.onclick=()=>openCage(b.dataset.mc));
 }
-/* 기록 탭 보기 거르기(LF)와 기록 정리(PG: 고른 기록 id) */
-let LF='',PG=null;
-const PG_T=['기록 수정','기록 삭제','되돌림','출산 취소','이력 수정','이력 삭제','메모 수정','메모 지움','상태 변경','작업 붙여넣기','인수인계 → 당번 메모','인수인계 수정'];
-/* 되돌린 저장과 그 되돌림 기록은 같이 골라야 함 (하나만 지우면 줄 그음이 풀리거나 남음) */
-function pgLink(ids,on){const out=new Set(ids);let n=-1;while(n!==out.size){n=out.size;EVENTS.forEach(e=>{if(e.undoOf&&EVENTS.some(x=>out.has(x.id)&&ugrp(x)===e.undoOf))out.add(e.id);if(EVENTS.some(x=>out.has(x.id)&&x.undoOf&&x.undoOf===ugrp(e)))out.add(e.id)})}
-  out.forEach(id=>on?PG.add(id):PG.delete(id))}
+/* 기록 탭 보기 거르기: 전체 / 일반 cage / 입력한 사람 */
+let LF='';
 function renderLog(){
   const who=[...new Set(EVENTS.map(e=>e.by).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   const L=EVENTS.filter(e=>!LF||(LF==='일반'?String(e.cage||'').startsWith('일반'):e.by===LF));
   $('#view').innerHTML=`<div class="qa g2" style="margin-bottom:6px"><span class="qg">파일</span><button class="btn pri" id="xlsL">인수인계 엑셀</button><button class="btn pri" id="rpt">동물센터 월간 보고</button>${isAdmin()?'<button class="btn" id="bkB">백업 · 되돌리기</button>':''}</div>
-  ${isAdmin()?'<div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button><button class="btn" id="opB">작업 붙여넣기</button></div>':''}<div class="row" style="gap:6px;margin-bottom:8px;align-items:center"><select id="lgF" aria-label="기록 거르기" style="min-height:36px"><option value="">전체 기록</option><option value="일반" ${LF==='일반'?'selected':''}>일반 cage</option>${who.map(n=>`<option ${LF===n?'selected':''}>${esc(n)}</option>`).join('')}</select>${isAdmin()?(PG?`<button class="btn" id="pgQ">수정·취소·되돌림 고르기</button><button class="btn pri" id="pgY" style="background:var(--alert);color:var(--alert-ink)" ${PG.size?'':'disabled'}>${PG.size}건 지우기</button><button class="btn" id="pgX">그만</button>`:'<button class="btn" id="pgB">기록 정리</button>'):''}</div><div id="bkP"></div><div class="ox"><table class="log"><tr>${PG?'<th></th>':''}<th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${L.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}>${PG?`<td><input type="checkbox" class="pgk" data-id="${esc(e.id)}" ${PG.has(e.id)?'checked':''} aria-label="고르기" style="width:20px;height:20px"></td>`:''}<td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}${e.chg&&e.type!=='상태 변경'?`<details><summary class="dim more"><span class="o">▸ 바뀐 것</span><span class="c">▾ 접기</span></summary><span class="dim">${esc(deltaText(e.chg))}</span></details>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
+  ${isAdmin()?'<div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button><button class="btn" id="opB">작업 붙여넣기</button></div>':''}<div class="row" style="gap:6px;margin-bottom:8px;align-items:center"><select id="lgF" aria-label="기록 거르기" style="min-height:36px"><option value="">전체 기록</option><option value="일반" ${LF==='일반'?'selected':''}>일반 cage</option>${who.map(n=>`<option ${LF===n?'selected':''}>${esc(n)}</option>`).join('')}</select></div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${L.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}><td>${md(e.date)}</td><td>${esc(e.cage)}</td><td>${esc(e.type)}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}${e.chg&&e.type!=='상태 변경'?`<details><summary class="dim more"><span class="o">▸ 바뀐 것</span><span class="c">▾ 접기</span></summary><span class="dim">${esc(deltaText(e.chg))}</span></details>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
   $('#lgF').onchange=e=>{LF=e.target.value;renderLog()};
-  if($('#pgB'))$('#pgB').onclick=()=>{PG=new Set();renderLog()};
-  if($('#pgX'))$('#pgX').onclick=()=>{PG=null;renderLog()};
-  if($('#pgQ'))$('#pgQ').onclick=()=>{pgLink(L.filter(e=>PG_T.includes(e.type)||undoneOf(e)||e.undoOf).map(e=>e.id),true);renderLog()};
-  $$('.pgk').forEach(k=>k.onchange=()=>{pgLink([k.dataset.id],k.checked);renderLog()});
-  if($('#pgY'))$('#pgY').onclick=()=>{const b=$('#pgY');if(!b.dataset.q){b.dataset.q=1;b.textContent=`정말 ${PG.size}건 지우기`;return}purgeEvents([...PG]).then(ok=>{if(ok){PG=null;renderLog()}})};
   $('#xlsL').onclick=legacyForm;$('#rpt').onclick=reportForm;if($('#snB'))$('#snB').onclick=snapForm;if($('#opB'))$('#opB').onclick=opsForm;
   $$('[data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev));
   if(isAdmin())$('#bkB').onclick=async()=>{const P=$('#bkP');P.textContent='불러오는 중…';let L;try{L=await Store.listBackups()}catch(e){P.textContent='백업 목록 못 불러옴';return}
@@ -1757,7 +1750,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261118101810';
+let NEWV=0;const VER='20261118104942';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
