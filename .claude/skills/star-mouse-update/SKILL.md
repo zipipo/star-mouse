@@ -8,7 +8,7 @@ description: 유진이 동물실에서 한 작업(물 교체, 수컷 빼기, 출
 사이트 데이터(Firestore)는 로그인해야 보이므로 클라우드 세션에서 직접 못 읽는다. 대신 사이트에 있는 두 버튼으로 주고받는다.
 
 - **기록 탭 → `현황 보내기`**: 지금 cage·litter·최근 기록 120개를 JSON으로 복사 (두 버튼 모두 관리자 계정에만 보임)
-- **기록 탭 → `작업 붙여넣기`**: Claude가 만든 JSON을 붙여넣고 미리보기 → 저장 (당번·관리자). 한 줄이라도 ✗면 저장 안 됨. 저장된 기록에는 `via:"붙여넣기"`가 붙고, 마지막에 `작업 붙여넣기` 기록(note)이 남는다.
+- **기록 탭 → `작업 붙여넣기`**: Claude가 만든 JSON을 붙여넣고 미리보기 → 저장 (당번·관리자). 한 줄이라도 ✗면 저장 안 됨. 저장된 기록에는 `via:"붙여넣기"`가 붙는다. note는 미리보기에만 보이고 기록에는 안 남는다 (기록 탭에서 다른 사람이 헷갈려서 뺌).
 - 크롬이 연결된 세션(데스크톱 앱 + Claude in Chrome)이면 사이트 콘솔에서 `starAgent.snapshot()`, `starAgent.preview(ops)`, `await starAgent.apply(ops, note)`를 바로 쓴다. 저장 전에 preview 결과를 유진에게 보여주고 확인받는다.
 - `apply` 결과의 `undo`가 되돌리기 id다. 잘못 넣었으면 `await starAgent.undo(id)`로 그 저장 직전 상태로 돌린다 (그 cage를 그 뒤 다른 저장이 바꿨으면 막힘 → op로 직접 고침). snapshot events의 기록 id를 넣어도 같은 저장 묶음을 찾아 되돌린다. delEvent·editEvent는 되돌리기 대상이 아님.
 
