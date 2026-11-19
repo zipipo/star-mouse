@@ -157,9 +157,16 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .ck{width:100%;border-collapse:collapse;font-size:14px}
 .ck td,.ck th{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
 .ck th{font-size:12px;color:var(--sub);font-weight:600;position:sticky;top:46px;background:var(--bg);z-index:1}
-.ck td.cd{text-align:left;line-height:1.25}.ck td.cd b{font-size:14px}.ck td.cd span{display:block;font-size:11.5px;color:var(--sub)}
-.ck tr.sec td{text-align:left;font-weight:800;padding-top:12px;font-size:13px}
-.ck input{width:44px;min-height:36px;text-align:center;font-size:15px;padding:0;border-radius:8px}
+.ck td.cd{text-align:left;line-height:1.25}.ck td.cd b{font-size:14px}.ck td.cd>span{display:block;font-size:11.5px;color:var(--sub)}
+.ck tr.sec td{text-align:left;font-weight:800;padding:14px 3px 4px;font-size:15px;border-bottom:2px solid var(--fg)}
+.ck input{width:46px;min-height:38px;text-align:center;font-size:16px;font-weight:700;padding:0;border-radius:8px;border:1.5px solid var(--line)}
+.ck input.m{color:var(--male);border-color:color-mix(in srgb,var(--male) 45%,transparent);background:color-mix(in srgb,var(--male) 8%,var(--bg))}
+.ck input.f{color:var(--female);border-color:color-mix(in srgb,var(--female) 45%,transparent);background:color-mix(in srgb,var(--female) 8%,var(--bg))}
+.ck input.z{opacity:.45;font-weight:500}
+.ck input.p{color:var(--fg)}
+.ck th.m{color:var(--male);font-weight:800}.ck th.f{color:var(--female);font-weight:800}
+.ck tr.lit td{text-align:left;font-size:12px;color:var(--sub);font-weight:700;padding:10px 3px 2px;border-bottom:0}
+.ck td.cd .lab{font-size:14.5px}
 .ck .ok{width:38px;height:36px;border:0;border-radius:8px;background:var(--soft);font-size:17px;color:var(--sub)}
 .ck tr.y td{background:#e7f5ea}.ck tr.y .ok{background:#3f9a72;color:#fff}
 .ck tr.x td{background:var(--alert)}.ck tr.x .ok{background:var(--alert-ink);color:#fff}
@@ -682,7 +689,7 @@ function renderTop(){
   const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0),gs=f=>G.reduce((x,g)=>x+(+g[f]||0),0);
   const stG=G.length?`<tr><td><b>일반</b></td><td>${gs('m')+gs('f')}</td><td>${gs('m')}</td><td>${gs('f')}</td><td>0</td><td>${G.length}</td><td>${G.filter(g=>(+g.m||0)+(+g.f||0)>=4).length}</td></tr>`:'';
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}${stG}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
-  $('#stat').hidden=tab!=='board';$('#todo').hidden=$('#mat').hidden=true;
+  $('#stat').hidden=tab!=='board'||CKV;$('#todo').hidden=$('#mat').hidden=true;
 }
 /* Mating cage: ♂♀ 한 쌍마다 결혼 쥐 그림 1개, 짝 없이 남는 개체는 쥐 아이콘 */
 function mateImg(c){const n=Math.max(1,Math.min(c.m,c.f)),k=Math.min(n,4),h=k>1?36:54;
@@ -703,7 +710,7 @@ function renderBoard(){
   $('#bq').oninput=()=>{BQ=$('#bq').value;drawBoard()};
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
   if($('#newCage'))$('#newCage').onclick=newCageForm;
-  if($('#ckGo'))$('#ckGo').onclick=()=>{CKV=true;CK=ckLoad();render()};
+  if($('#ckGo'))$('#ckGo').onclick=()=>{CKV=true;CK=ckLoad();render();scrollTo(0,0)};
   if($('#gAdd'))$('#gAdd').onclick=()=>generalForm(-1);
 }
 /* ===== 마릿수 체크: 당번이 cage마다 ♂·♀·새끼를 표에서 맞음(✓)/고침 → 이 폰에 임시 저장 → [반영]으로 한 번에 실사 저장 ===== */
@@ -721,15 +728,17 @@ const ckDif=r=>['m','f','p'].filter(f=>r[f]!=null&&ckV(r,f)!==r[f]);
 function ckSum(R){const ok=R.filter(r=>(CK.r[r.k]||{}).ok),ch=ok.filter(r=>ckDif(r).length);return {ok,ch,n:R.length}}
 function renderCount(){
   const R=ckRows(),{ok,ch,n}=ckSum(R);let sec='';
-  const inp=(r,f,lab)=>r[f]==null?'<td class="dim">–</td>':`<td><input type="number" min="0" inputmode="numeric" id="ck_${esc(r.k)}_${f}" data-k="${esc(r.k)}" data-f="${f}" value="${ckV(r,f)}" class="${ckV(r,f)!==r[f]?'dif':''}" aria-label="${esc(r.id)} ${lab}"></td>`;
-  const rows=R.map(r=>{const o=(CK.r[r.k]||{}).ok,d=ckDif(r).length;const h=r.sec!==sec?`<tr class="sec"><td colspan="5">${esc(r.sec)}</td></tr>`:'';sec=r.sec;
-    return h+`<tr class="${o?(d?'x':'y'):''}" data-row="${esc(r.k)}"><td class="cd"><b>${esc(r.lab||'-')}</b><span>${esc(r.id)}</span></td>${inp(r,'m','수컷')}${inp(r,'f','암컷')}${inp(r,'p','새끼')}<td><button class="ok" data-ok="${esc(r.k)}" aria-label="맞음">✓</button></td></tr>`}).join('');
+  const inp=(r,f,lab)=>r[f]==null?'<td class="dim">–</td>':`<td><input type="number" min="0" inputmode="numeric" id="ck_${esc(r.k)}_${f}" data-k="${esc(r.k)}" data-f="${f}" value="${ckV(r,f)}" class="${f}${ckV(r,f)!==r[f]?' dif':''}${!ckV(r,f)?' z':''}" aria-label="${esc(r.id)} ${lab}"></td>`;
+  let lt='';
+  const rows=R.map(r=>{const o=(CK.r[r.k]||{}).ok,d=ckDif(r).length;let h=r.sec!==sec?`<tr class="sec"><td colspan="5">${esc(r.sec)}</td></tr>`:'';sec=r.sec;
+    const L=r.c?lit(r.c.litter):null,lk=L?L.key:r.sec;if(L&&lk!==lt)h+=`<tr class="lit"><td colspan="5">${esc(L.key)} · DOB ${fd(L.dob)}</td></tr>`;lt=lk;
+    return h+`<tr class="${o?(d?'x':'y'):''}" data-row="${esc(r.k)}"><td class="cd"><b class="lab">${r.c?labH(r.c):esc(r.lab||'-')}</b><span>${esc(r.id)}</span></td>${inp(r,'m','수컷')}${inp(r,'f','암컷')}${inp(r,'p','새끼')}<td><button class="ok" data-ok="${esc(r.k)}" aria-label="맞음">✓</button></td></tr>`}).join('');
   $('#view').innerHTML=`<div class="ckh"><span class="n" id="ckN">${ok.length}/${n} 확인${ch.length?` · <span style="color:var(--alert-ink)">${ch.length} 고침</span>`:''}</span><button class="btn pri" id="ckA" ${ok.length?'':'disabled'}>반영</button><button class="btn" id="ckR">처음부터</button><button class="btn" id="ckX">닫기</button></div>
     <div class="dim" style="font-size:12px;margin-bottom:4px">${fd(CK.d)} 체크 중 · 이 폰에 저장됨</div>
-    <table class="ck"><tr><th style="text-align:left">DOB · cage</th><th><span class="ma">♂</span></th><th><span class="fe">♀</span></th><th>새끼</th><th>맞음</th></tr>${rows}</table>`;
+    <table class="ck"><tr><th style="text-align:left">DOB · cage</th><th class="m">♂ 수컷</th><th class="f">♀ 암컷</th><th>새끼</th><th>맞음</th></tr>${rows}</table>`;
   const byK=k=>R.find(r=>r.k===k);
   const paint=k=>{const r=byK(k),tr=$(`[data-row="${CSS.escape(k)}"]`);if(!r||!tr)return;const o=(CK.r[k]||{}).ok,d=ckDif(r).length;tr.className=o?(d?'x':'y'):'';
-    tr.querySelectorAll('input').forEach(i=>i.classList.toggle('dif',ckV(r,i.dataset.f)!==r[i.dataset.f]));
+    tr.querySelectorAll('input').forEach(i=>{i.classList.toggle('dif',ckV(r,i.dataset.f)!==r[i.dataset.f]);i.classList.toggle('z',!ckV(r,i.dataset.f))});
     const S2=ckSum(R);$('#ckN').innerHTML=`${S2.ok.length}/${S2.n} 확인${S2.ch.length?` · <span style="color:var(--alert-ink)">${S2.ch.length} 고침</span>`:''}`;$('#ckA').disabled=!S2.ok.length};
   $$('.ck input').forEach(i=>i.oninput=()=>{const k=i.dataset.k,r=byK(k);CK.r[k]=CK.r[k]||{};if(i.value==='')return;CK.r[k][i.dataset.f]=Math.max(0,parseInt(i.value)||0);CK.r[k].ok=true;ckSave();paint(k)});
   $$('[data-ok]').forEach(b=>b.onclick=()=>{const k=b.dataset.ok;CK.r[k]=CK.r[k]||{};CK.r[k].ok=!CK.r[k].ok;if(!CK.r[k].ok)CK.r[k]={};ckSave();renderCount()});
@@ -1812,7 +1821,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261119134017';
+let NEWV=0;const VER='20261119134252';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
