@@ -154,6 +154,18 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .card .lab{font-size:16.5px}
 .card .cid{font-size:12px;color:var(--sub)}
 .bq{width:100%;min-height:44px;font-size:15px;margin-bottom:10px}
+.ck{width:100%;border-collapse:collapse;font-size:14px}
+.ck td,.ck th{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
+.ck th{font-size:12px;color:var(--sub);font-weight:600;position:sticky;top:46px;background:var(--bg);z-index:1}
+.ck td.cd{text-align:left;line-height:1.25}.ck td.cd b{font-size:14px}.ck td.cd span{display:block;font-size:11.5px;color:var(--sub)}
+.ck tr.sec td{text-align:left;font-weight:800;padding-top:12px;font-size:13px}
+.ck input{width:44px;min-height:36px;text-align:center;font-size:15px;padding:0;border-radius:8px}
+.ck .ok{width:38px;height:36px;border:0;border-radius:8px;background:var(--soft);font-size:17px;color:var(--sub)}
+.ck tr.y td{background:#e7f5ea}.ck tr.y .ok{background:#3f9a72;color:#fff}
+.ck tr.x td{background:var(--alert)}.ck tr.x .ok{background:var(--alert-ink);color:#fff}
+.ck input.dif{font-weight:800;color:var(--alert-ink);box-shadow:inset 0 0 0 2px var(--alert-ink)}
+.ckh{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;position:sticky;top:0;background:var(--bg);z-index:2;padding:6px 0}
+.ckh .n{font-weight:700;font-size:14px;margin-right:auto}
 .undone td:nth-child(4){text-decoration:line-through;opacity:.6}
 </style>
 </head>
@@ -370,7 +382,7 @@ function stDelta(b,a){b=b||{};a=a||{};const o={cages:{},litters:{},keys:{}};let 
   [['cages','id'],['litters','key']].forEach(([f,k])=>{const B=by(b[f],k),A=by(a[f],k);new Set([...Object.keys(B),...Object.keys(A)]).forEach(id=>{if(!same(B[id],A[id])){o[f][id]={b:B[id]??null,a:A[id]??null};n++}})});
   new Set([...Object.keys(b),...Object.keys(a)]).forEach(k=>{if(k!=='cages'&&k!=='litters'&&!same(b[k],a[k])){o.keys[k]={b:b[k]??null,a:a[k]??null};n++}});
   return n?o:null}
-const KEYL={dutyNotes:'당번 메모',ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸',snoozeTo:'오늘 할 일 미룸'};
+const KEYL={countCheck:'마릿수 체크',dutyNotes:'당번 메모',ntbcLog:'NTBC 기록',general:'일반 cage',swaps:'당번 교대',lines:'종류',reportDone:'월말 보고',xls:'엑셀 번호',countLog:'엑셀 마리수',roster:'당번 순서',dutyStart:'당번 시작일',snooze:'오늘 할 일 미룸',snoozeTo:'오늘 할 일 미룸'};
 const CFL={name:'이름',notes:'메모',note:'메모',indM:'개체 표시',indF:'개체 표시',purpose:'용도',dad:'아빠',litter:'litter',line:'종류'};
 const csS=c=>`♂${c.m||0}♀${c.f||0}${c.pups?' 새끼'+pupS(c.pups):''}${c.mate?` Mating(♂${c.mate.n} ${fd(c.mate.start)})`:''}${c.wait?' 출산 대기 '+fd(c.wait):''}`;
 function deltaText(x){if(!x)return '';if(x.big)return x.text||'';const t=[];
@@ -684,14 +696,57 @@ function mice(c){
   return `<div class="mice">${h||'<span class="dim">빈 cage</span>'}</div>`;
 }
 function renderBoard(){
+  if(CKV&&canEdit())return renderCount();
   if(filt!=='전체'&&filt!=='일반'&&!LINES().includes(filt))filt='전체';
-  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB로 찾기 · 26.04.06 · 0406 · 4/6" aria-label="DOB 검색"><div class="filters">${['전체',...LINESV(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?(filt==='일반'?'<button class="btn pri" id="gAdd" style="margin-left:auto">+ 일반 cage</button>':'<button class="btn pri" id="newCage" style="margin-left:auto">+ 새 cage</button>'):''}</div>`;
+  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB로 찾기 · 26.04.06 · 0406 · 4/6" aria-label="DOB 검색"><div class="filters">${['전체',...LINESV(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?`<button class="btn" id="ckGo" style="margin-left:auto">마릿수 체크</button>`+(filt==='일반'?'<button class="btn pri" id="gAdd">+ 일반 cage</button>':'<button class="btn pri" id="newCage">+ 새 cage</button>'):''}</div>`;
   h+='<div id="bl"></div>';$('#view').innerHTML=h;drawBoard();
   $('#bq').oninput=()=>{BQ=$('#bq').value;drawBoard()};
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
   if($('#newCage'))$('#newCage').onclick=newCageForm;
+  if($('#ckGo'))$('#ckGo').onclick=()=>{CKV=true;CK=ckLoad();render()};
   if($('#gAdd'))$('#gAdd').onclick=()=>generalForm(-1);
 }
+/* ===== 마릿수 체크: 당번이 cage마다 ♂·♀·새끼를 표에서 맞음(✓)/고침 → 이 폰에 임시 저장 → [반영]으로 한 번에 실사 저장 ===== */
+let CKV=false,CK=null;
+const ckLoad=()=>{try{const x=JSON.parse(localStorage.getItem('smCount')||'null');return x&&x.r?x:{d:todayS(),r:{}}}catch(e){return {d:todayS(),r:{}}}};
+const ckSave=()=>{try{localStorage.setItem('smCount',JSON.stringify(CK))}catch(e){}};
+function ckRows(){const R=[];
+  LINESV().forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>S.cages.filter(c=>c.litter===l.key&&shown(c)).forEach(c=>R.push({k:'c:'+c.id,c,sec:L,lab:labS(c),id:c.id,m:c.m,f:c.f,p:c.pups?c.pups.n:null}))));
+  S.cages.filter(c=>shown(c)&&!R.some(r=>r.c===c)).forEach(c=>R.push({k:'c:'+c.id,c,sec:c.line,lab:labS(c),id:c.id,m:c.m,f:c.f,p:c.pups?c.pups.n:null}));
+  (S.general||[]).forEach((g,i)=>{if((+g.m||0)+(+g.f||0)>0)R.push({k:'g:'+(g.no||i),gi:i,g,sec:'일반',lab:(g.owner||'')+(g.dob?' '+fd(g.dob):''),id:g.no||'번호 없음',m:+g.m||0,f:+g.f||0,p:null})});
+  return R}
+/* 지금 값(v)이 사이트 값(r)과 다른 칸 */
+const ckV=(r,f)=>{const v=(CK.r[r.k]||{})[f];return v==null?r[f]:v};
+const ckDif=r=>['m','f','p'].filter(f=>r[f]!=null&&ckV(r,f)!==r[f]);
+function ckSum(R){const ok=R.filter(r=>(CK.r[r.k]||{}).ok),ch=ok.filter(r=>ckDif(r).length);return {ok,ch,n:R.length}}
+function renderCount(){
+  const R=ckRows(),{ok,ch,n}=ckSum(R);let sec='';
+  const inp=(r,f,lab)=>r[f]==null?'<td class="dim">–</td>':`<td><input type="number" min="0" inputmode="numeric" id="ck_${esc(r.k)}_${f}" data-k="${esc(r.k)}" data-f="${f}" value="${ckV(r,f)}" class="${ckV(r,f)!==r[f]?'dif':''}" aria-label="${esc(r.id)} ${lab}"></td>`;
+  const rows=R.map(r=>{const o=(CK.r[r.k]||{}).ok,d=ckDif(r).length;const h=r.sec!==sec?`<tr class="sec"><td colspan="5">${esc(r.sec)}</td></tr>`:'';sec=r.sec;
+    return h+`<tr class="${o?(d?'x':'y'):''}" data-row="${esc(r.k)}"><td class="cd"><b>${esc(r.lab||'-')}</b><span>${esc(r.id)}</span></td>${inp(r,'m','수컷')}${inp(r,'f','암컷')}${inp(r,'p','새끼')}<td><button class="ok" data-ok="${esc(r.k)}" aria-label="맞음">✓</button></td></tr>`}).join('');
+  $('#view').innerHTML=`<div class="ckh"><span class="n" id="ckN">${ok.length}/${n} 확인${ch.length?` · <span style="color:var(--alert-ink)">${ch.length} 고침</span>`:''}</span><button class="btn pri" id="ckA" ${ok.length?'':'disabled'}>반영</button><button class="btn" id="ckR">처음부터</button><button class="btn" id="ckX">닫기</button></div>
+    <div class="dim" style="font-size:12px;margin-bottom:4px">${fd(CK.d)} 체크 중 · 이 폰에 저장됨</div>
+    <table class="ck"><tr><th style="text-align:left">DOB · cage</th><th><span class="ma">♂</span></th><th><span class="fe">♀</span></th><th>새끼</th><th>맞음</th></tr>${rows}</table>`;
+  const byK=k=>R.find(r=>r.k===k);
+  const paint=k=>{const r=byK(k),tr=$(`[data-row="${CSS.escape(k)}"]`);if(!r||!tr)return;const o=(CK.r[k]||{}).ok,d=ckDif(r).length;tr.className=o?(d?'x':'y'):'';
+    tr.querySelectorAll('input').forEach(i=>i.classList.toggle('dif',ckV(r,i.dataset.f)!==r[i.dataset.f]));
+    const S2=ckSum(R);$('#ckN').innerHTML=`${S2.ok.length}/${S2.n} 확인${S2.ch.length?` · <span style="color:var(--alert-ink)">${S2.ch.length} 고침</span>`:''}`;$('#ckA').disabled=!S2.ok.length};
+  $$('.ck input').forEach(i=>i.oninput=()=>{const k=i.dataset.k,r=byK(k);CK.r[k]=CK.r[k]||{};if(i.value==='')return;CK.r[k][i.dataset.f]=Math.max(0,parseInt(i.value)||0);CK.r[k].ok=true;ckSave();paint(k)});
+  $$('[data-ok]').forEach(b=>b.onclick=()=>{const k=b.dataset.ok;CK.r[k]=CK.r[k]||{};CK.r[k].ok=!CK.r[k].ok;if(!CK.r[k].ok)CK.r[k]={};ckSave();renderCount()});
+  $('#ckX').onclick=()=>{CKV=false;render()};
+  $('#ckR').onclick=()=>{const b=$('#ckR');if(!b.dataset.q){b.dataset.q=1;b.textContent='정말 처음부터';return}CK={d:todayS(),r:{}};ckSave();renderCount()};
+  $('#ckA').onclick=ckApply;
+}
+async function ckApply(){const R=ckRows(),{ok,ch}=ckSum(R),T=todayS();if(!ok.length)return;
+  const cOps=ch.filter(r=>r.c).map(r=>{const d=ckDif(r),o={op:'census',cage:r.id,date:T,text:'· 마릿수 체크'};if(d.includes('m'))o.m=ckV(r,'m');if(d.includes('f'))o.f=ckV(r,'f');if(d.includes('p'))o.pups=ckV(r,'p');return o});
+  const P=planOps(cOps);if(P.bad){toast(P.rows.find(x=>!x.ok).line);return}
+  const gs=ch.filter(r=>r.g).map(r=>({r,m:ckV(r,'m'),f:ckV(r,'f')}));
+  const evs=[...P.rows.map(x=>x.ev),...gs.map(x=>({cage:gTag(x.r.g),date:T,type:'실사',text:`♂${x.r.m}♀${x.r.f} → ♂${x.m}♀${x.f} · 마릿수 체크`})),
+    {cage:'전체',date:T,type:'마릿수 체크',text:`${ok.length} cage 확인${ch.length?` · ${ch.length} cage 고침`:' · 다 맞음'}`}];
+  const r=await commit(st=>{cOps.forEach(o=>OPS.census(st,{...o}));
+    gs.forEach(x=>{const g=st.general[x.r.gi];if(!g||(g.no||'')!==(x.r.g.no||''))throw new Error('일반 cage 목록이 바뀜, 다시 열어주세요');g.m=x.m;g.f=x.f;const c=gC(g);g.indM=inds(c,'m');g.indF=inds(c,'f')});
+    st.countCheck={date:T,by:ME.nick,n:ok.length,fix:ch.length}},evs);
+  if(r){CK={d:todayS(),r:{}};ckSave();CKV=false;render()}}
 const outS=c=>S.cages.filter(x=>x.mate&&x.mate.from===c.id).map(x=>`Mating 나감 ♂${x.mate.n} → ${x.id}`).join(' · ');
 function cardH(c){const s=status(c),out=outS(c),src=c.mate&&S.cages.find(x=>x.id===c.mate.from);
   return `<button class="card ${c.line}${c.pups||c.mate||c.wait?' blue':''}${c.mate?' mating':''}"${cst(c)} data-c="${esc(c.id)}">${c.mate?[12,38,64,86].map((x,k)=>`<i class="hrt" style="left:${x}%;animation-delay:${k*0.9}s">♥</i>`).join(''):''}<span class="lab">${labH(c)}</span><span class="cid">${c.name?esc(c.name)+' · ':''}${c.id}</span>${s?`<span class="st${s.late?' late':''}">${s.t}</span>`:''}${c.wait&&!c.mate&&pairS(c)?`<span class="dim">아빠 ${pairS(c).split(' × ')[0]}</span>`:''}${c.purpose?`<span class="dim">${esc(c.purpose)}</span>`:''}${notesOf(c).length?`<span class="memo">📝 ${esc(notesOf(c)[0].text)}${notesOf(c).length>1?` (+${notesOf(c).length-1})`:''}</span>`:''}${indS(c)?`<span class="memo">🏷 ${esc(indS(c))}</span>`:''}${c.mate?mateImg(c)+`<span class="dim"><b class="ma">♂ ${c.mate.n}</b> (from ${esc(c.mate.from)}${src?' · DOB '+dobS(src):''})</span>`:mice(c)}${out?`<span class="dim" style="font-size:11.5px">${esc(out)}</span>`:''}</button>`}
@@ -1757,7 +1812,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261119061547';
+let NEWV=0;const VER='20261119134017';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
