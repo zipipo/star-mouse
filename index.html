@@ -443,6 +443,8 @@ const total=c=>c.m+c.f+(c.pups?c.pups.n:0);
 /* 새끼 마릿수 미확인(작아서 못 셈)이면 '?' 또는 '약 5?' */
 const pupS=p=>p?(p.unk?(p.n?`약 ${p.n}?`:'?'):String(p.n)):'';
 const LINES=()=>(S.lines||['FRG','FAH']).filter(x=>x!=='일반');
+/* 화면 순서: FAH 먼저, FRG 다음, 나머지 종류는 뒤 (엑셀은 원래 순서 그대로) */
+const LINESV=()=>{const L=LINES(),o=['FAH','FRG'];return [...o.filter(x=>L.includes(x)),...L.filter(x=>!o.includes(x))]};
 const WEANL=l=>WEAN[l]||[21,28];
 const XCOL=['#e3f4dc','#efe6ff','#dff4f7','#fbe8d6','#f0f0e0'];
 const lcol=l=>['FRG','FAH'].includes(l)?'':XCOL[Math.max(0,LINES().indexOf(l)-2)%XCOL.length];
@@ -663,7 +665,7 @@ function renderTop(){
     if($('#hoRead'))$('#hoRead').onclick=()=>Store.updateHandover(hx.id,{read:true,readBy:ME.nick}).then(()=>logEv({cage:'인수인계',type:'인수인계 확인',text:`${hx.from} → ${hx.to}`})).catch(()=>toast('저장 실패'));
     $('#hoAll').onclick=()=>go('handover')}else hb.innerHTML='';
   const sum=(cs,f)=>cs.reduce((a,c)=>a+f(c),0);
-  const st=LINES().map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
+  const st=LINESV().map(L=>{const cs=S.cages.filter(c=>c.line===L&&total(c)>0);return `<tr><td><b>${L}</b></td><td>${sum(cs,total)}</td><td>${sum(cs,c=>c.m)}</td><td>${sum(cs,c=>c.f)}</td><td>${sum(cs,c=>c.pups?c.pups.n:0)}</td><td>${cs.length}</td><td>${cs.filter(c=>total(c)>=4||c.pups).length}</td></tr>`}).join('');
   const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0),gs=f=>G.reduce((x,g)=>x+(+g[f]||0),0);
   const stG=G.length?`<tr><td><b>일반</b></td><td>${gs('m')+gs('f')}</td><td>${gs('m')}</td><td>${gs('f')}</td><td>0</td><td>${G.length}</td><td>${G.filter(g=>(+g.m||0)+(+g.f||0)>=4).length}</td></tr>`:'';
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}${stG}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
@@ -682,7 +684,7 @@ function mice(c){
 }
 function renderBoard(){
   if(filt!=='전체'&&filt!=='일반'&&!LINES().includes(filt))filt='전체';
-  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB로 찾기 · 26.04.06 · 0406 · 4/6" aria-label="DOB 검색"><div class="filters">${['전체',...LINES(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?(filt==='일반'?'<button class="btn pri" id="gAdd" style="margin-left:auto">+ 일반 cage</button>':'<button class="btn pri" id="newCage" style="margin-left:auto">+ 새 cage</button>'):''}</div>`;
+  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB로 찾기 · 26.04.06 · 0406 · 4/6" aria-label="DOB 검색"><div class="filters">${['전체',...LINESV(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?(filt==='일반'?'<button class="btn pri" id="gAdd" style="margin-left:auto">+ 일반 cage</button>':'<button class="btn pri" id="newCage" style="margin-left:auto">+ 새 cage</button>'):''}</div>`;
   h+='<div id="bl"></div>';$('#view').innerHTML=h;drawBoard();
   $('#bq').oninput=()=>{BQ=$('#bq').value;drawBoard()};
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
@@ -695,7 +697,7 @@ function cardH(c){const s=status(c),out=outS(c),src=c.mate&&S.cages.find(x=>x.id
 function drawBoard(){const Q=parseQ(BQ);let h='';
   if(Q){const cs=S.cages.filter(c=>shown(c)&&(filt==='전체'||c.line===filt)&&cageHit(c,Q)).sort((a,b)=>a.id.localeCompare(b.id,'ko',{numeric:true}));
     h=`<div class="dim" style="margin-bottom:6px">${esc(BQ)} · ${cs.length} cage</div><div class="cards">${cs.map(cardH).join('')}</div>`}
-  else (filt==='전체'?LINES():filt==='일반'?[]:[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
+  else (filt==='전체'?LINESV():filt==='일반'?[]:[filt]).forEach(L=>S.litters.filter(l=>l.line===L&&!l.ended).forEach(l=>{
     const cs=S.cages.filter(c=>c.litter===l.key&&(total(c)>0||c.mate||c.wait));if(!cs.length)return;
     h+=`<div class="litter"><h3>${l.key}<span>${l.dob.slice(2).replace(/-/g,'.')} · ${days(l.dob)}일</span></h3><div class="cards">${cs.map(cardH).join('')}</div></div>`;
   }));
@@ -713,7 +715,7 @@ function renderTree(){
     const mt=S.cages.filter(c=>c.litter===l.key&&(c.mate||c.wait)).map(c=>{const sc=c.mate&&S.cages.find(x=>x.id===c.mate.from),dl=sc?sc.litter:c.dad,st=status(c);return `<li><span class="node mt" role="button" data-mc="${esc(c.id)}">💕 <b class="fe">♀ ${esc(l.key)}</b> × <b class="ma">♂ ${esc(dl||'?')}</b><span class="dim">${esc(c.id)}${st?' · '+esc(st.t):''}</span></span></li>`});
     const par=l.mom&&S.litters.some(p=>p.key===l.mom)?`<span class="pp"><b class="fe">♀${esc(l.mom.split(' ').pop())}</b>×<b class="ma">♂${esc(l.dad?l.dad.split(' ').pop():'?')}</b></span>`:'';
     return `<li><span class="node ${zero?'end':l.line}"${!zero&&lcol(l.line)?` style="background:${lcol(l.line)};cursor:pointer"`:''} role="button" tabindex="0" data-lit="${esc(l.key)}" style="cursor:pointer"><b>${l.key}</b><span>${l.dob.slice(2).replace(/-/g,'.')}</span><span>${info}</span>${par}</span>${kids.length||mt.length?'<ul>'+mt.join('')+kids.map(node).join('')+'</ul>':''}</li>`};
-  $('#view').innerHTML='<div class="tree">'+LINES().map(L=>`<h3 style="font-size:14px;margin:12px 0 6px">${L}</h3><ul>${S.litters.filter(l=>l.line===L&&!S.litters.some(p=>p.key===l.mom)).map(node).join('')}</ul>`).join('')+'</div>';
+  $('#view').innerHTML='<div class="tree">'+LINESV().map(L=>`<h3 style="font-size:14px;margin:12px 0 6px">${L}</h3><ul>${S.litters.filter(l=>l.line===L&&!S.litters.some(p=>p.key===l.mom)).map(node).join('')}</ul>`).join('')+'</div>';
   $$('[data-lit]').forEach(b=>b.onclick=()=>openLitter(b.dataset.lit));$$('[data-mc]').forEach(b=>b.onclick=()=>openCage(b.dataset.mc));
 }
 /* 기록 탭 보기 거르기: 전체 / 일반 cage / 입력한 사람 */
@@ -1750,7 +1752,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261118104942';
+let NEWV=0;const VER='20261119032423';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
