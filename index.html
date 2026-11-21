@@ -61,7 +61,7 @@ nav.tabs{display:flex;gap:2px;margin:16px 0 12px;border-bottom:1px solid var(--l
 nav.tabs button{border:0;background:none;padding:8px 12px;font-size:14px;white-space:nowrap;border-bottom:2px solid transparent}
 nav.tabs button[aria-selected="true"]{font-weight:700;border-bottom-color:var(--peach-2)}
 nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
-.filters{display:flex;gap:6px;margin-bottom:12px}
+.filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center}.filters .chip,.filters .btn{white-space:nowrap;flex:none}
 .chip{border:0;background:var(--soft);border-radius:99px;padding:4px 12px;font-size:13px}
 .chip:disabled{cursor:default;opacity:1}
 .chip[aria-pressed="true"]{background:var(--peach-2);color:var(--peach-ink);font-weight:700}
@@ -72,6 +72,8 @@ nav.tabs button[aria-selected="true"]::before{content:"🐾 "}
 .card{border:0;text-align:left;border-radius:14px;padding:10px 11px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .card.FRG{background:var(--frg)}.card.FAH{background:var(--fah)}.card.blue{background:var(--blue)}
 .card .id{font-weight:700;font-size:14.5px}
+.card .inj{align-self:flex-start;font-size:11.5px;font-weight:700;line-height:1.3;padding:1px 7px;border-radius:99px;background:var(--bg);box-shadow:inset 0 0 0 1px var(--line);color:var(--sub);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.card .inj.mid{color:var(--peach-ink)}.card .inj.late{color:var(--alert-ink)}
 .card .memo{font-size:12.5px;color:var(--sub);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .st{font-size:12.5px;font-weight:700}.st.late{color:var(--alert-ink)}
 .mice{font-size:15px;line-height:1.35;word-break:break-all}
@@ -400,12 +402,12 @@ function deltaText(x){if(!x)return '';if(x.big)return x.text||'';const t=[];
   Object.entries(x.keys||{}).forEach(([k,v])=>t.push(k==='general'?genDelta(v.b,v.a):(KEYL[k]||k)+' 바뀜'));
   return t.join(' / ')}
 /* 일반 cage 전후: cage(번호)마다 마리수 · 칸 · 개체 표시 · 나간 개체 · 메모 */
-const GFL={no:'Cage No.',owner:'연구자',strain:'Strain',iacuc:'IACUC',dob:'DOB',inDate:'반입일',parents:'Parents',memo:'메모',notes:'메모',indM:'개체 표시',indF:'개체 표시',gone:'나간 개체'};
+const GFL={injectionDate:'주입일',no:'Cage No.',owner:'연구자',strain:'Strain',iacuc:'IACUC',dob:'DOB',inDate:'반입일',parents:'Parents',memo:'메모',notes:'메모',indM:'개체 표시',indF:'개체 표시',gone:'나간 개체'};
 function genDelta(b,a){b=b||[];a=a||[];const nm=(g,i)=>'일반 '+(g.no||'#'+(i+1)),ms=g=>`♂${+g.m||0}♀${+g.f||0}`,t=[],used=new Set();
   a.forEach((g,i)=>{let j=b.findIndex((x,k)=>!used.has(k)&&(x.no||'')===(g.no||''));if(j<0&&b[i]&&!used.has(i)&&!a.some(y=>(y.no||'')===(b[i].no||'')))j=i;
     if(j<0){t.push(`+${nm(g,i)} ${g.strain||''} ${ms(g)}`.replace(/  +/g,' '));return}used.add(j);const o=b[j];if(same(o,g))return;
     const ch=[];if(ms(o)!==ms(g))ch.push(`${ms(o)} → ${ms(g)}`);
-    Object.keys(GFL).forEach(k=>{if(same(o[k],g[k]))return;if(['no','owner','strain','iacuc','dob','inDate','parents'].includes(k))ch.push(`${GFL[k]} ${o[k]||'-'} → ${g[k]||'-'}`);
+    Object.keys(GFL).forEach(k=>{if(same(o[k],g[k]))return;if(['injectionDate','no','owner','strain','iacuc','dob','inDate','parents'].includes(k))ch.push(`${GFL[k]} ${o[k]||'-'} → ${g[k]||'-'}`);
       else if(k==='gone'){const n=(g.gone||[]).length-(o.gone||[]).length;ch.push(n>0?(g.gone||[]).slice(-n).map(goneS).join(', '):'나간 개체 되돌림')}
       else if(!ch.includes(GFL[k]+' 바뀜'))ch.push(GFL[k]+' 바뀜')});
     t.push(`${nm(o,j)} ${ch.join(' · ')}`)});
@@ -1239,9 +1241,24 @@ async function gOut(picks,type,text,D){
 function genHTML(){
   const G=(S.general||[]).map((g,i)=>({...g,i})),by={};G.forEach(g=>(by[g.owner||'기타']=by[g.owner||'기타']||[]).push(g));
   if(!G.length)return filt==='일반'?'<p class="dim">아직 없음</p>':'';
-  return `<div class="litter"><h3>일반<span>${G.reduce((a,g)=>a+(+g.m||0)+(+g.f||0),0)}마리 · ${G.length} cage</span></h3></div>`+Object.keys(by).sort((a,b)=>a.localeCompare(b,'ko')).map(o=>`<div class="litter"><h3 style="font-size:14px;display:flex;align-items:center;gap:6px">${esc(o)}<span>${by[o].length} cage</span>${canEdit()&&by[o].some(g=>(+g.m||0)+(+g.f||0)>0)?`<button class="btn" data-gbulk="${esc(o)}" style="margin-left:auto;font-size:12.5px;padding:3px 10px">여러 cage 한번에 실험·사망</button>`:''}</h3><div class="cards">${by[o].map(g=>{const ns=gNotes(g),last=(g.gone||[]).slice(-1)[0],tg=indS(gC(g));
+  return `<div class="litter"><h3>일반<span>${G.reduce((a,g)=>a+(+g.m||0)+(+g.f||0),0)}마리 · ${G.length} cage</span></h3></div>`+Object.keys(by).sort((a,b)=>a.localeCompare(b,'ko')).map(o=>`<div class="litter"><h3 style="font-size:14px;display:flex;align-items:center;gap:6px">${esc(ownerL(o))}<span>${by[o].length} cage</span>${canEdit()&&by[o].some(g=>(+g.m||0)+(+g.f||0)>0)?`<button class="btn" data-gbulk="${esc(o)}" style="margin-left:auto;font-size:12.5px;padding:3px 10px">여러 cage 한번에 실험·사망</button>`:''}</h3><div class="cards">${by[o].map(g=>{const ns=gNotes(g),last=(g.gone||[]).slice(-1)[0],tg=indS(gC(g));
     return `<button class="card" style="background:var(--gen)" data-g="${g.i}"><span class="id">${esc(g.no||'번호 없음')}</span>
-     <span class="dim">${esc(g.strain||'')}${g.dob?' · DOB '+fd(g.dob):''}</span>${mice({m:+g.m||0,f:+g.f||0})}${tg?`<span class="memo">🏷 ${esc(tg)}</span>`:''}${last?`<span class="memo">✂ ${esc(goneS(last))}${g.gone.length>1?` (+${g.gone.length-1})`:''}</span>`:''}${ns.length?`<span class="memo">📝 ${esc(ns[0].text)}${ns.length>1?` (+${ns.length-1})`:''}</span>`:''}</button>`}).join('')}</div></div>`).join('')}
+     <span class="dim">${esc(g.strain||'')}${g.dob?' · DOB '+fd(g.dob):''}</span>${mice({m:+g.m||0,f:+g.f||0})}${tg?`<span class="memo">🏷 ${esc(tg)}</span>`:''}${last?`<span class="memo">✂ ${esc(goneS(last))}${g.gone.length>1?` (+${g.gone.length-1})`:''}</span>`:''}${injBadge(g)}${ns.length?`<span class="memo">📝 ${esc(ns[0].text)}${ns.length>1?` (+${ns.length-1})`:''}</span>`:''}</button>`}).join('')}</div></div>`).join('')}
+/* 화면에 보이는 연구자 이름 (저장값 owner는 그대로) */
+const OWNER_L={'한결':'한결 & 유진'};
+const ownerL=o=>OWNER_L[o]||o;
+/* 주입 경과일. injectionDate: 'YYYY-MM-DD' / null(무주입, 배지 없음) / 없음(메모 맨 앞 YY.MM.DD로 대신) */
+const seoulToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+function injDate(g){if(g.injectionDate===null)return null;
+  if(typeof g.injectionDate==='string'&&/^\d{4}-\d\d-\d\d$/.test(g.injectionDate))return g.injectionDate;
+  if(g.injectionDate!==undefined&&g.injectionDate!=='')return null;
+  const L=[...(g.memo?[g.memo]:[]),...(g.notes||[]).map(n=>n&&n.text)];
+  if(L.some(t=>/주입\s*X/i.test(String(t||''))))return null;
+  for(const t of L){const m=/^(\d{2})\.(\d{2})\.(\d{2})/.exec(String(t||'').trim());if(m)return `20${m[1]}-${m[2]}-${m[3]}`}
+  return null}
+function injDays(D,today=seoulToday()){const u=x=>{const [y,m,d]=x.split('-').map(Number);return Date.UTC(y,m-1,d)};return Math.round((u(today)-u(D))/86400000)}
+function injBadge(g,today){const D=injDate(g);if(!D)return '';const n=injDays(D,today);
+  return `<span class="inj${n>=35?' late':n>=14?' mid':''}">${n<0?'D'+n:'D+'+n} · ${fd(D)} 주입</span>`}
 /* 일반 cage 상세: 개체 · 나간 개체 · 메모 · 기록 */
 function openGen(i,act){
   const g=(S.general||[])[i];if(!g){$('#dlg').close();return}
@@ -1249,7 +1266,7 @@ function openGen(i,act){
   $('#dT').textContent=g.no?`${g.no} · 일반`:'일반 cage';
   const c=gC(g),ns=gNotes(g),gone=(g.gone||[]).map((x,k)=>({...x,k})).reverse(),tag=gTag(g),evs=g.no?EVENTS.filter(e=>e.cage===tag).slice(0,40):[];
   const B=(k,t)=>`<button data-ga="${k}" class="${act===k?'on':''}">${t}</button>`,alive=c.m+c.f>0;
-  $('#dB').innerHTML=`<div class="dim">${[g.strain,g.dob&&`DOB ${fd(g.dob)} · ${days(g.dob)}일`,g.owner,g.iacuc&&'IACUC '+g.iacuc,g.inDate&&'반입 '+fd(g.inDate),g.parents&&'Parents '+g.parents].filter(Boolean).map(esc).join(' · ')}</div>
+  $('#dB').innerHTML=`<div class="dim">${[g.strain,g.dob&&`DOB ${fd(g.dob)} · ${days(g.dob)}일`,g.owner&&ownerL(g.owner),g.iacuc&&'IACUC '+g.iacuc,g.inDate&&'반입 '+fd(g.inDate),g.parents&&'Parents '+g.parents].filter(Boolean).map(esc).join(' · ')}</div>
    <div style="margin:8px 0">${mice(c)}</div>
    ${canEdit()?`<div class="qa g2"><span class="qg">마리수</span>${alive?B('exp','실험')+B('death','사망'):''}${alive?B('sex','성별 수정'):''}${B('info','라벨 정보 · 마리수 수정')}</div><div class="qa g3"><span class="qg">기록</span>${B('memo','메모')}${alive?B('ind','개체 표시'):''}</div><div id="form"></div>`:''}
    ${alive?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 남은 개체</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${['m','f'].flatMap(sx=>inds(c,sx).map(o=>`<b class="${sx==='m'?'ma':'fe'}">${nmI(sx,o.no)}</b> ${esc(labI(o))||'<span class="dim">표시 없음</span>'}`)).join('<br>')}</div>`:''}
@@ -1307,7 +1324,7 @@ function genAct(i,a){
 function genBulk(owner){
   CUR={k:'bulk'};
   const G=(S.general||[]).map((g,i)=>({g,i})).filter(({g})=>(g.owner||'기타')===owner&&(+g.m||0)+(+g.f||0)>0);
-  $('#dT').textContent=`${owner} · 여러 cage 한번에`;
+  $('#dT').textContent=`${ownerL(owner)} · 여러 cage 한번에`;
   $('#dB').innerHTML=`<div class="frm"><div class="row"><label>구분 <select id="bT"><option>실험</option><option>사망</option></select></label>${dateIn()}</div>
     <input id="fMemo" placeholder="내용 (예: 간 적출)">
     <div class="dim">cage마다 뺄 개체를 눌러주세요</div>
@@ -1322,14 +1339,17 @@ function generalForm(i){
   const g=i>=0?S.general[i]:{strain:'C57BL/6',owner:ME.name};
   if(i<0){CUR=null;$('#dT').textContent='일반 cage 추가'}
   const H=`<div class="frm" style="background:var(--gen)">${GFI.map(([k,l,t])=>`<label>${SXL(l)} <input id="g_${k}" ${t?`type="${t}"`:''} value="${esc(g[k]??'')}" ${t==='number'?'min="0" style="width:70px"':'style="flex:1;min-width:0"'}></label>`).join('')}
+   <label>주입일 <input id="g_inj" type="date" value="${esc(typeof g.injectionDate==='string'?g.injectionDate:'')}"></label><label><input type="checkbox" id="g_noinj" ${g.injectionDate===null?'checked':''}> 무주입 (Ctrl)</label>
    ${i<0?'<label>메모 <input id="g_memo" style="flex:1;min-width:0"></label>':''}
    <div class="row"><button class="btn pri" id="gOk">저장</button>${i>=0?'<button class="btn" id="gDel">cage 삭제</button><span id="gQ"></span>':''}</div></div>`;
   if(i>=0)$('#form').innerHTML=H;else $('#dB').innerHTML=H;
   const no=g.no||'';
   $('#gOk').onclick=async()=>{const v={};GFI.forEach(([k,,t])=>{const x=$('#g_'+k).value.trim();v[k]=t==='number'?(+x||0):x});
-    const memo=i<0?$('#g_memo').value.trim():'';
-    const ok=await commit(st=>{st.general=st.general||[];if(i>=0){const x=st.general[i];if(!x||(x.no||'')!==no)throw new Error('cage 목록이 바뀜, 다시 열어주세요');st.general[i]={...x,...v}}
-      else st.general.push({...v,notes:memo?[{t:nowS(),by:ME.nick,text:memo}]:[]})},[{cage:'일반 '+(v.no||''),type:i>=0?'일반 수정':'일반 추가',text:i>=0?(GFI.filter(([k])=>String(v[k]??'')!==String(g[k]??'')).map(([k,l])=>`${l} ${(g[k]??'')||'-'} → ${v[k]||'-'}`).join(' · ')||'바뀐 칸 없음'):`${v.strain} ♂${v.m} ♀${v.f}`}]);
+    const memo=i<0?$('#g_memo').value.trim():'',ij=$('#g_noinj').checked?null:($('#g_inj').value||undefined);
+    const ijS=x=>x===null?'무주입':x===undefined?'-':fd(x),ijC=ij!==g.injectionDate?[`주입일 ${ijS(g.injectionDate)} → ${ijS(ij)}`]:[];
+    const setInj=x=>{if(ij===undefined)delete x.injectionDate;else x.injectionDate=ij;return x};
+    const ok=await commit(st=>{st.general=st.general||[];if(i>=0){const x=st.general[i];if(!x||(x.no||'')!==no)throw new Error('cage 목록이 바뀜, 다시 열어주세요');st.general[i]=setInj({...x,...v})}
+      else st.general.push(setInj({...v,notes:memo?[{t:nowS(),by:ME.nick,text:memo}]:[]}))},[{cage:'일반 '+(v.no||''),type:i>=0?'일반 수정':'일반 추가',text:i>=0?([...GFI.filter(([k])=>String(v[k]??'')!==String(g[k]??'')).map(([k,l])=>`${l} ${(g[k]??'')||'-'} → ${v[k]||'-'}`),...ijC].join(' · ')||'바뀐 칸 없음'):`${v.strain} ♂${v.m} ♀${v.f}${ij!==undefined?' · 주입일 '+ijS(ij):''}`}]);
     if(!ok)return;if(i>=0)openGen(i);else $('#dlg').close()};
   if(i>=0)$('#gDel').onclick=()=>{$('#gQ').innerHTML=' 정말 삭제? <button class="btn pri" id="gY">삭제</button>';
     $('#gY').onclick=async()=>{if(await commit(st=>{const x=st.general[i];if(!x||(x.no||'')!==no)throw new Error('cage 목록이 바뀜, 다시 열어주세요');st.general.splice(i,1)},[{cage:'일반 '+no,type:'일반 삭제',text:(x=>x?`${x.owner||''} ${x.strain||''} ♂${x.m||0} ♀${x.f||0}`.trim():'')(S.general[i])}]))$('#dlg').close()}};
@@ -1821,7 +1841,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--peach-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261119134252';
+let NEWV=0;const VER='20261121025013';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
