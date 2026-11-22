@@ -12,8 +12,11 @@
 <meta name="theme-color" content="#e2f7b5">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
+@font-face{font-family:"NeoHyundai";src:url("fonts/NeoHyundai-R.woff2") format("woff2");font-weight:100 550;font-display:swap}
+@font-face{font-family:"NeoHyundai";src:url("fonts/NeoHyundai-B.woff2") format("woff2");font-weight:551 900;font-display:swap}
 :root{
-  --bg:#ffffff; --fg:#17181c; --sub:#3d414a; --line:#ececf0; --soft:#f7f7f9;
+  --bg:#ffffff; --fg:#17181c; --sub:#3d414a; --line:rgba(30,34,60,.09); --soft:rgba(255,255,255,.62); --glass:rgba(255,255,255,.78);
+  --g1:#ffe3ee; --g2:#ddeeff; --g3:#fff7d6; --g4:#ddf6e3; --g5:#efe4ff; --gbase:#fbfcff;
   --frg:#fff6c9; --fah:#ffe4ec; --blue:#e0edff;
   --lime:#e2f7b5; --lime-2:#b5e35a; --lime-ink:#2e5206;
   --male:#1f4fb8; --female:#c2185b; --pup:#f7b3cb;
@@ -21,14 +24,22 @@
   --font:"NeoHyundai","네오현대","Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#17181c; --fg:#f3f3f5; --sub:#cfd2d9; --line:#2d2f36; --soft:#202228;
+  --bg:#17181c; --fg:#f3f3f5; --sub:#cfd2d9; --line:rgba(255,255,255,.09); --soft:rgba(255,255,255,.06); --glass:rgba(23,24,28,.8);
+  --g1:#3a2430; --g2:#1f2c40; --g3:#35321f; --g4:#1f3527; --g5:#2c2440; --gbase:#16171b;
   --frg:#4b4520; --fah:#4d2a36; --blue:#22344f; --lime:#33461c; --lime-2:#5b8a24; --lime-ink:#e2f7b5;
   --male:#9cc2ff; --female:#ff9cc6; --pup:#b56d88; --alert:#5a2420; --alert-ink:#ffaaa2; --new:#2d4222; --gen:#3d3b2c; color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
-body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.45;
+body{background:var(--gbase);color:var(--fg);font-family:var(--font);font-size:14px;line-height:1.45;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:40px}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(55% 45% at 8% 6%,var(--g1),transparent 72%),
+  radial-gradient(50% 45% at 92% 10%,var(--g2),transparent 72%),
+  radial-gradient(55% 50% at 10% 72%,var(--g3),transparent 72%),
+  radial-gradient(55% 50% at 62% 88%,var(--g4),transparent 72%),
+  radial-gradient(40% 40% at 96% 58%,var(--g1),transparent 72%),
+  radial-gradient(45% 40% at 50% 40%,var(--g5),transparent 75%),var(--gbase)}
 .wrap{max-width:1180px;margin:0 auto}
 button{font:inherit;color:inherit;cursor:pointer}
 :focus-visible{outline:2px solid var(--lime-2);outline-offset:2px}
@@ -158,7 +169,7 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .bq{width:100%;min-height:44px;font-size:15px;margin-bottom:10px}
 .ck{width:100%;border-collapse:collapse;font-size:14px}
 .ck td,.ck th{padding:4px 3px;border-bottom:1px solid var(--line);text-align:center;vertical-align:middle}
-.ck th{font-size:12px;color:var(--sub);font-weight:600;position:sticky;top:46px;background:var(--bg);z-index:1}
+.ck th{font-size:12px;color:var(--sub);font-weight:600;position:sticky;top:46px;background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:1}
 .ck td.cd{text-align:left;line-height:1.25}.ck td.cd b{font-size:14px}.ck td.cd>span{display:block;font-size:11.5px;color:var(--sub)}
 .ck tr.sec td{text-align:left;font-weight:800;padding:14px 3px 4px;font-size:15px;border-bottom:2px solid var(--fg)}
 .ck input{width:46px;min-height:38px;text-align:center;font-size:16px;font-weight:700;padding:0;border-radius:8px;border:1.5px solid var(--line)}
@@ -173,7 +184,7 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .ck tr.y td{background:#e7f5ea}.ck tr.y .ok{background:#3f9a72;color:#fff}
 .ck tr.x td{background:var(--alert)}.ck tr.x .ok{background:var(--alert-ink);color:#fff}
 .ck input.dif{font-weight:800;color:var(--alert-ink);box-shadow:inset 0 0 0 2px var(--alert-ink)}
-.ckh{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;position:sticky;top:0;background:var(--bg);z-index:2;padding:6px 0}
+.ckh{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;position:sticky;top:0;background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:2;padding:6px 0}
 .ckh .n{font-weight:700;font-size:14px;margin-right:auto}
 .undone td:nth-child(4){text-decoration:line-through;opacity:.6}
 </style>
@@ -1841,7 +1852,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--lime-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261122143842';
+let NEWV=0;const VER='20261122145917';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
