@@ -451,6 +451,8 @@ async function undoSave(id){
 /* 기록은 날짜 순(같은 날은 입력 순). 지난 날짜로 넣은 기록도 제자리에 보이게 */
 function sortEv(a){return a.sort((x,y)=>String(y.date||'').localeCompare(String(x.date||'')))}
 /* 화면 밖 작업(인수인계·멤버·내보내기)도 기록에 남김. 실패해도 본 작업은 그대로 */
+/* 쥐 관리와 무관한 기록(멤버·기록 삭제/수정/정리·작업 붙여넣기)은 기록 탭·당번 기록·엑셀에서 숨김 */
+const META_T=['기록 삭제','기록 수정','기록 정리','작업 붙여넣기','권한','당번표 이름','내 정보'],isMeta=e=>e.cage==='멤버'||META_T.includes(e.type);
 const logEv=e=>ME&&canEdit()?Store.log({date:todayS(),by:ME.nick,...e}).catch(err=>console.warn('log',err)):null;
 const evS=e=>`${fd(e.date)} ${e.cage} ${e.type}${e.text?' '+e.text:''}`;
 async function editEv(id,patch,mut,log){
@@ -804,8 +806,8 @@ const typeV=e=>!isNoteT(e.type)?e.type:e.type==='당번 메모'?'할 일 메모'
 /* 기록 탭 보기 거르기: 전체 / 일반 cage / 입력한 사람 */
 let LF='';
 function renderLog(){
-  const who=[...new Set(EVENTS.map(e=>e.by).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
-  const L=EVENTS.filter(e=>e.type!=='작업 붙여넣기'&&(!LF||(LF==='일반'?String(e.cage||'').startsWith('일반'):e.by===LF)));
+  const who=[...new Set(EVENTS.filter(e=>!isMeta(e)).map(e=>e.by).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const L=EVENTS.filter(e=>!isMeta(e)&&(!LF||(LF==='일반'?String(e.cage||'').startsWith('일반'):e.by===LF)));
   $('#view').innerHTML=`<div class="qa g2" style="margin-bottom:6px"><span class="qg">파일</span><button class="btn pri" id="xlsL">인수인계 엑셀</button><button class="btn pri" id="rpt">동물센터 월간 보고</button>${isAdmin()?'<button class="btn" id="bkB">백업 · 되돌리기</button>':''}</div>
   ${isAdmin()?'<div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button><button class="btn" id="opB">작업 붙여넣기</button></div>':''}<div class="row" style="gap:6px;margin-bottom:8px;align-items:center"><select id="lgF" aria-label="기록 거르기" style="min-height:36px"><option value="">전체 기록</option><option value="일반" ${LF==='일반'?'selected':''}>일반 cage</option>${who.map(n=>`<option ${LF===n?'selected':''}>${esc(n)}</option>`).join('')}</select></div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${L.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}><td>${md(e.date)}</td><td>${esc(cageV(e))}</td><td>${esc(typeV(e))}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
   $('#lgF').onchange=e=>{LF=e.target.value;renderLog()};
@@ -818,7 +820,7 @@ function renderLog(){
       $('#brY').onclick=async()=>{if(await commit(st=>{Object.keys(st).forEach(k=>delete st[k]);Object.assign(st,clone(b.main))},[{cage:'백업',type:'되돌리기',text:`${b.id} 상태로 · ${deltaText(stDelta(S,b.main)).slice(0,300)||'바뀐 것 없음'}`}]))toast('되돌림')}})};
 }
 function renderHandover(){
-  const w=curW(),n=nextW(),evs=EVENTS.filter(e=>e.date>=w.week),N=ntbc(),ed=canEdit();
+  const w=curW(),n=nextW(),evs=EVENTS.filter(e=>e.date>=w.week&&!isMeta(e)),N=ntbc(),ed=canEdit();
   const mine=NOTES().filter(x=>x.week===w.week).sort((a,b)=>(a.done-b.done)||String(a.due||'9').localeCompare(String(b.due||'9'))),
     old=NOTES().filter(x=>x.week<w.week&&!x.done);
   const nRow=x=>`<div class="wl" data-nrow="${x.id}" style="display:flex;gap:8px;align-items:center${x.done?';opacity:.6':''}">
@@ -903,9 +905,9 @@ function renderMembers(){
   $('#view').innerHTML=`<div class="ox"><table class="log"><tr><th>닉네임</th><th>당번표</th><th>권한</th></tr>${rows.map(m=>`<tr><td>${esc(m.nick)}</td><td><select data-nm="${m.uid}" aria-label="당번표 이름">${[...new Set([...names,m.name||''])].map(n=>`<option value="${esc(n)}" ${n===(m.name||'')?'selected':''}>${esc(n||'-')}</option>`).join('')}</select></td>
     <td>${m.role==='admin'?'관리자':`<div class="acts">${opts.map(([r,t])=>`<button class="chip" aria-pressed="${m.role===r}" ${m.role===r?'disabled':''} data-u="${m.uid}" data-r="${r}">${t}</button>`).join('')}</div>`}</td></tr>`).join('')}</table></div>`;
   const RL={admin:'관리자',...Object.fromEntries(opts)};
-  $$('[data-u]').forEach(b=>b.onclick=async()=>{const m=MEMBERS.find(x=>x.uid===b.dataset.u);try{await Store.saveMember(b.dataset.u,{role:b.dataset.r});logEv({cage:'멤버',type:'권한',text:`${m?.nick||''} ${RL[m?.role]||m?.role||'-'} → ${RL[b.dataset.r]}`});toast('바꿈')}catch(e){toast('저장 실패')}});
+  $$('[data-u]').forEach(b=>b.onclick=async()=>{const m=MEMBERS.find(x=>x.uid===b.dataset.u);try{await Store.saveMember(b.dataset.u,{role:b.dataset.r});toast('바꿈')}catch(e){toast('저장 실패')}});
   $$('[data-nm]').forEach(s=>s.onchange=async()=>{const m=MEMBERS.find(x=>x.uid===s.dataset.nm);
-    try{await Store.saveMember(s.dataset.nm,{name:s.value});logEv({cage:'멤버',type:'당번표 이름',text:`${m?.nick||''} ${m?.name||'-'} → ${s.value}`});toast(`${m?.nick||''} 당번표 → ${s.value}`)}catch(e){toast('저장 실패');render()}});
+    try{await Store.saveMember(s.dataset.nm,{name:s.value});toast(`${m?.nick||''} 당번표 → ${s.value}`)}catch(e){toast('저장 실패');render()}});
 }
 function renderEmpty(){
   $('#duty').innerHTML='';$('#hoTop').hidden=true;$('#stat').innerHTML='';$('#todo').innerHTML='';$('#mat').innerHTML='';
@@ -968,7 +970,7 @@ function evForm(id,back){
     if(!ch.length&&!s){toast('바뀐 내용 없음');return}
     done(await editEv(id,p,s?s.f:null,{cage:e.cage,type:'기록 수정',text:`[${evS(e)}${e.by?' · '+e.by:''}] ${ch.join(' · ')}${s?' · '+s.lab+' 같이 바꿈':''}`}))};
   $('#eDel').onclick=()=>{$('#eQ').innerHTML=' 정말 지울까요? <button class="btn pri" id="eY">지우기</button>';
-    $('#eY').onclick=async()=>done(await editEv(id,null,null,{cage:e.cage,type:'기록 삭제',text:`${evS(e)}${e.by?' · 입력 '+e.by:''}`}))};
+    $('#eY').onclick=async()=>done(await editEv(id,null,null,null))};
   if(!$('#dlg').open)$('#dlg').showModal();
 }
 function render(){
@@ -1585,7 +1587,7 @@ async function exportXlsx(){
   LINES().forEach(L=>S.litters.filter(l=>l.line===L).forEach(l=>{const cs=S.cages.filter(c=>c.litter===l.key);const r=lt.addRow([l.key,l.dob,l.mom||'',l.dad||'',cs.reduce((a,c)=>a+c.m,0),cs.reduce((a,c)=>a+c.f,0),l.ended?'종료':'']);r.getCell(1).fill=F(lc(L));sx(r,5,6)}));
   // 기록
   const ev=sheet('기록',[['날짜',11],['Cage',13],['구분',13],['내용',60],['입력',8]]);
-  EVENTS.forEach(e=>{const r=ev.addRow([e.date,e.cage,e.type,e.text,e.by]);r.getCell(4).alignment={wrapText:true,vertical:'top'}});
+  EVENTS.filter(e=>!isMeta(e)).forEach(e=>{const r=ev.addRow([e.date,e.cage,e.type,e.text,e.by]);r.getCell(4).alignment={wrapText:true,vertical:'top'}});
   const buf=await wb.xlsx.writeBuffer(),u=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),a=document.createElement('a');
   a.href=u;a.download=`STAR Mouse ${todayS()}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(u),3000);
 }
@@ -1680,7 +1682,7 @@ async function applyOps(ops,note){
     if(!ch.length)continue;p.ed=nowS();p.edBy=ME.nick;const fr=h.from,tt=h.to;try{await Store.updateHandover(h.id,p);logEv({cage:'인수인계',type:'인수인계 수정',text:`[${fr} → ${tt}] ${ch.join(' · ')}${o.why?' · '+o.why:''}`})}catch(e){toast('인수인계 수정 실패');return {ok:false,rows:P.rows}}}
   for(const o of ops.filter(o=>o.op==='purge'))if(!await purgeEvents(o.ids))return {ok:false,rows:P.rows};
   for(const o of ops.filter(o=>OP_EV.includes(o.op)&&!['handoverEdit','purge'].includes(o.op))){const e=EVENTS.find(x=>x.id===o.id);if(!e)continue;
-    if(o.op==='delEvent')await editEv(e.id,null,null,{cage:e.cage,type:'기록 삭제',text:`${evS(e)}${e.by?' · 입력 '+e.by:''}${o.why?' · '+o.why:''}`});
+    if(o.op==='delEvent')await editEv(e.id,null,null,null);
     else{const p={ed:nowS(),edBy:ME.nick};['date','cage','type','text'].forEach(k=>{if(o[k]!==undefined)p[k]=o[k]});if(!e.orig)p.orig={date:e.date,cage:e.cage,type:e.type,text:e.text||''};
       await editEv(e.id,p,null,{cage:e.cage,type:'기록 수정',text:`[${evS(e)}] ${Object.keys(p).filter(k=>!['ed','edBy','orig'].includes(k)).map(k=>`${k} ${e[k]||'-'} → ${p[k]}`).join(' · ')}${o.why?' · '+o.why:''}`})}}
   return {ok:true,rows:P.rows,undo};
@@ -1831,8 +1833,8 @@ function profileForm(first){
    <div class="row"><button class="btn pri" id="pOk">저장</button>${first?'':'<button class="btn" id="pOut">로그아웃</button>'}</div></div>`;
   $('#pOk').onclick=async()=>{const nick=$('#pN').value.trim();if(!nick){$('#pN').focus();return}
     const data={nick,name:$('#pR').value,email:AUTH.email||''};
-    if(!first){const old=ME?{nick:ME.nick,name:ME.name}:{};try{await Store.saveMember(AUTH.uid,data);$('#dlg').close();
-      const ch=[['nick','닉네임'],['name','당번표']].filter(([k])=>old[k]!==data[k]).map(([k,l])=>`${l} ${old[k]||'-'} → ${data[k]}`);if(ch.length)logEv({cage:'멤버',type:'내 정보',text:ch.join(' · '),by:data.nick})}catch(e){toast('저장 실패')}return}
+    if(!first){try{await Store.saveMember(AUTH.uid,data);$('#dlg').close();
+      }catch(e){toast('저장 실패')}return}
     // 역할은 서버 규칙이 허용하는 것만 저장됨: 미리 등록된 계정이면 바로 승인, 아니면 승인 대기
     for(const role of ['admin','editor','viewer','pending']){
       try{await Store.saveMember(AUTH.uid,{...data,role});$('#dlg').close();return}catch(e){}
