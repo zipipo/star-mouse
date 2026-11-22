@@ -146,6 +146,7 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 #toast{display:flex;align-items:center;gap:10px;width:max-content;max-width:calc(100vw - 24px)}#toast span{flex:1;min-width:0}
 #toast button{border:0;border-radius:99px;background:var(--lime-2);color:var(--lime-ink);font-weight:700;font-size:14px;padding:0 16px;min-height:44px;white-space:nowrap;flex:none}
 .td{display:flex;flex-direction:column;gap:8px;max-width:640px}
+@media (min-width:900px){.td{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;max-width:none}.td>:not(.tdi){grid-column:1/-1}}
 .ntb{font-size:13px;color:var(--sub);padding:2px 2px 0}.ntb b{color:var(--fg)}
 .tdsec{font-size:14px;font-weight:800;margin:6px 2px 0}.tdsec.late{color:var(--alert-ink)}
 .tdi{background:var(--soft);border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;gap:6px;border-left:4px solid var(--lime-2)}
@@ -161,7 +162,7 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
 .big:disabled{opacity:.45}
 .tdi input[type=date],.tdi input.by,.tdi select{min-height:38px;font-size:14px;padding:0 8px}
 .tdi input.n{width:48px;min-height:38px;text-align:center;font-size:16px;font-weight:700;padding:0}
-.tdi label.ck{display:flex;align-items:center;gap:6px;min-height:38px;font-size:13.5px}.tdi label.ck input{width:18px;height:18px}
+.tdi label.ck{width:auto;display:flex;align-items:center;gap:6px;min-height:38px;font-size:13.5px}.tdi label.ck input{width:18px;height:18px}
 .tdup{margin-top:6px}.tdup summary{cursor:pointer;font-weight:700;padding:8px 2px}
 .tdup button{display:block;width:100%;text-align:left;border:0;background:var(--soft);border-radius:10px;padding:8px 11px;margin:5px 0;font-size:13.5px;min-height:40px}
 .card .lab{font-size:16.5px}
@@ -1852,7 +1853,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)[0]};color:${col(p.uid)[1]}${p.self?';outline:2px solid var(--lime-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261122150400';
+let NEWV=0;const VER='20261122150503';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
