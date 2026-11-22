@@ -61,7 +61,7 @@ select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid 
 .todo{margin:10px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 .todo button{border:0;text-align:left;background:var(--alert);color:var(--alert-ink);border-radius:10px;padding:7px 11px;font-size:13.5px;font-weight:700}
 .pres{display:flex;gap:4px}
-.pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;border:2px solid var(--bg)}
+.pres span{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(40,40,80,.12)}
 .card.mating{position:relative;overflow:hidden}
 .mt{height:32px;width:auto;vertical-align:middle;margin-left:4px}
 .hrt{position:absolute;bottom:-14px;font-size:15px;color:#ff8fb3;opacity:0;animation:hrt 3.6s ease-in infinite;pointer-events:none}
@@ -1842,17 +1842,17 @@ function profileForm(first){
 }
 
 /* ===== 시작 ===== */
-const PCOL=['#e0795f','#3f9a72','#5b7fd6','#9a62d8','#d4507f','#2c9c8f','#c27a3c','#6f8a2c'];
+const PCOL=[['#ffd3e2','#a3204f'],['#cfe6ff','#1f4f8f'],['#ccf2dc','#1d6b43'],['#e3d8ff','#5a3aa8'],['#fff0b8','#7a5a00'],['#c9f0f0','#1a6a6a'],['#ffdcef','#93307a'],['#e2f7b5','#3f6508']];
 function drawPres(){
   const now=Date.now(),me=AUTH?.uid,on=PRES.filter(p=>now-p.t<75000&&p.uid!==me);
   if(me&&ME)on.unshift({uid:me,nick:ME.nick,self:1});
   const h=u=>{let x=5381;for(const ch of u)x=((x*33)^ch.charCodeAt(0))>>>0;return x%PCOL.length};
   const used=new Set(),cmap={};[...on].sort((a,b)=>a.uid.localeCompare(b.uid)).forEach(p=>{let k=h(p.uid);for(let i=0;i<PCOL.length&&used.has(k);i++)k=(k+1)%PCOL.length;used.add(k);cmap[p.uid]=PCOL[k]});
   const col=u=>cmap[u];
-  $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)}${p.self?';outline:2px solid var(--lime-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
+  $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)[0]};color:${col(p.uid)[1]}${p.self?';outline:2px solid var(--lime-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261122145917';
+let NEWV=0;const VER='20261122150400';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
