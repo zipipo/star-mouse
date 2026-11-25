@@ -51,6 +51,10 @@ select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid 
 .duty::before,.duty::after{content:"";position:absolute;top:-11px;width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:14px solid var(--card)}
 .duty::before{left:22px}.duty::after{left:56px}
 .duty b{font-size:16px}.duty .s{font-size:13px}
+.duty.mini{padding:0}.duty.mini b{font-size:14px}
+.duty-mini{display:flex;flex-wrap:wrap;align-items:center;gap:2px 10px;width:100%;background:none;border:0;font:inherit;font-size:13.5px;color:var(--fg);text-align:left;padding:9px 14px;min-height:44px;cursor:pointer}
+.duty-mini .dim{font-size:12.5px}.duty-mini .dm-x{margin-left:auto;color:var(--sub)}
+.duty-fold{position:absolute;right:10px;bottom:6px;background:none;border:0;font:inherit;font-size:12px;color:var(--sub);cursor:pointer;padding:4px}
 .acts{display:flex;gap:6px;flex-wrap:wrap}
 .btn{border:0;background:var(--soft);border-radius:99px;padding:6px 13px;font-size:13px}
 .btn.pri{background:var(--acc-2);color:var(--acc-ink);font-weight:700}
@@ -241,7 +245,11 @@ const clone=o=>JSON.parse(JSON.stringify(o));
 
 let PRES=[];
 let S=null, EVENTS=[], HANDOVERS=[], MEMBERS=[], ME=null, AUTH=null, started=false;
-let tab='today', filt='전체', BQ='', TD={};
+let tab='today', filt='전체', BQ='', TD={}, TOPX=false;
+/* 마지막에 본 탭 · 거르기를 그날 동안 기억 (폰이 잠겼다 다시 열려도 케이지 탭 그대로) */
+const VIEWK='smView';
+try{const v=JSON.parse(localStorage.getItem(VIEWK)||'null');if(v&&v.d===ymd(new Date())&&['today','board','tree','log','handover','rules'].includes(v.tab)){tab=v.tab;filt=v.filt||'전체'}}catch(e){}
+const saveView=()=>{try{localStorage.setItem(VIEWK,JSON.stringify({d:ymd(new Date()),tab,filt}))}catch(e){}};
 
 /* ===== 초기 데이터: 2026.10.27 엑셀 기준 ===== */
 function seedState(){
@@ -578,7 +586,7 @@ function parseQ(q){q=(q||'').trim();if(!q)return null;if(/[A-Za-z가-힣]/.test(
     if(s.length===6){y=s.slice(0,2);m=s.slice(2,4);d=s.slice(4)}else if(s.length===8){y=s.slice(0,4);m=s.slice(4,6);d=s.slice(6)}else if(s.length===4){m=s.slice(0,2);d=s.slice(2)}else if(s.length===3){m=s[0];d=s.slice(1)}else return null}
   return {y:y==null?null:(+y)%100,m:+m,d:+d}}
 const dobHit=(dob,Q)=>{if(!dob)return false;const [y,m,d]=dob.split('-').map(Number);return (Q.y==null||y%100===Q.y)&&m===Q.m&&d===Q.d};
-const cageHit=(c,Q)=>{if(!Q)return true;if(Q.txt)return (c.id+' '+(c.name||'')).toLowerCase().includes(Q.txt);const r=dobsOf(c);return [r.f,r.m,r.mm,r.pup].some(x=>dobHit(x,Q))};
+const cageHit=(c,Q)=>{if(!Q)return true;if(Q.txt){const n=x=>String(x||'').toLowerCase().replace(/[\s\-_·.]/g,'');return n(c.id).includes(n(Q.txt))||n(c.name).includes(n(Q.txt))}const r=dobsOf(c);return [r.f,r.m,r.mm,r.pup].some(x=>dobHit(x,Q))};
 
 /* ===== 오늘 할 일: 앱 열면 첫 화면. 지난 일(빨강) → 오늘 일, 줄마다 바로 저장 ===== */
 /* 동물실은 월·목 또는 화·금에 감 → [다음에]는 다음 가는 날까지 숨김 (월→목, 화→금, 수→목, 목→월, 금→화, 토·일→월) */
@@ -692,6 +700,15 @@ function renderTop(){
     <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}${(p=>p.length?` · 4마리↑ ${p.map(x=>md(x.date)).join(', ')}`:'')(thisWeek.filter(x=>x.scope!=='전체'))}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
+  /* 오늘 할 일 탭이 아니면 당번 · 현황표를 한 줄로 접어 cage가 바로 보이게. 누르면 펼침 */
+  const mini=tab!=='today'&&!TOPX;
+  $('#duty').classList.toggle('mini',mini);
+  if(tab!=='today'){
+    const cnt=LINESV().map(L=>`${L} ${S.cages.filter(c=>c.line===L).reduce((a,c)=>a+total(c),0)}`).join(' · ');
+    if(mini){$('#duty').innerHTML=`<button class="duty-mini" id="dMini" aria-expanded="false"><span>${rng(w)} <b>${w.pair.join(' · ')}</b>${mine?' 🐾':''}</span><span class="dim">${cnt}</span><span class="dm-x">▾</span></button>`;
+      $('#dMini').onclick=()=>{TOPX=true;render()}}
+    else{$('#duty').insertAdjacentHTML('beforeend','<button class="duty-fold" id="dFold" aria-label="접기">▴ 접기</button>');$('#dFold').onclick=()=>{TOPX=false;render()}}
+  }
   /* 지금 당번이 받은 인수인계 중 가장 최근 것. 확인하면 띠는 사라지고 인수인계 탭에는 남음.
      받는 사람은 오늘 할 일에 같은 항목이 있으니 그 탭에선 띠를 숨김 */
   const hx=hoTo(w.pair).find(x=>!x.read),hb=$('#hoTop');hb.hidden=!hx||(tab==='today'&&String(hx.to).includes(ME.name));
@@ -705,7 +722,7 @@ function renderTop(){
   const G=(S.general||[]).filter(g=>(+g.m||0)+(+g.f||0)>0),gs=f=>G.reduce((x,g)=>x+(+g[f]||0),0);
   const stG=G.length?`<tr><td><b>일반</b></td><td>${gs('m')+gs('f')}</td><td>${gs('m')}</td><td>${gs('f')}</td><td>0</td><td>${G.length}</td><td>${G.filter(g=>(+g.m||0)+(+g.f||0)>=4).length}</td></tr>`:'';
   $('#stat').innerHTML=`<div class="ox"><table class="cnt"><tr><th></th><th>마리</th><th>♂</th><th>♀</th><th>새끼</th><th>cage</th><th>4마리↑</th></tr>${st}${stG}</table></div><div><b>NTBC</b> 1.8 ml aliquot (여유 1 vial 포함)<ul style="margin:2px 0 0;padding-left:18px"><li>전체 교체 : ${N.va} vial</li><li>4마리 이상 교체 : ${N.vb} vial</li></ul></div>`;
-  $('#stat').hidden=tab!=='board'||CKV;$('#todo').hidden=$('#mat').hidden=true;
+  $('#stat').hidden=tab!=='board'||CKV||!TOPX;$('#todo').hidden=$('#mat').hidden=true;
 }
 /* Mating cage: ♂♀ 한 쌍마다 결혼 쥐 그림 1개, 짝 없이 남는 개체는 쥐 아이콘 */
 function mateImg(c){const n=Math.max(1,Math.min(c.m,c.f)),k=Math.min(n,4),h=k>1?36:54;
@@ -721,10 +738,10 @@ function mice(c){
 function renderBoard(){
   if(CKV&&canEdit())return renderCount();
   if(filt!=='전체'&&filt!=='일반'&&!LINES().includes(filt))filt='전체';
-  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB로 찾기 · 26.04.06 · 0406 · 4/6" aria-label="DOB 검색"><div class="filters">${['전체',...LINESV(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?`<button class="btn" id="ckGo" style="margin-left:auto">마릿수 체크</button>`+(filt==='일반'?'<button class="btn pri" id="gAdd">+ 일반 cage</button>':'<button class="btn pri" id="newCage">+ 새 cage</button>'):''}</div>`;
+  let h=`<input type="search" class="bq" id="bq" value="${esc(BQ)}" placeholder="DOB 또는 cage · 0406 · 4/6 · FAH5" aria-label="DOB 또는 cage 검색"><div class="filters">${['전체',...LINESV(),'일반'].map(x=>`<button class="chip" aria-pressed="${filt===x}" data-f="${x}">${esc(x)}</button>`).join('')}${canEdit()?`<button class="btn" id="ckGo" style="margin-left:auto">마릿수 체크</button>`+(filt==='일반'?'<button class="btn pri" id="gAdd">+ 일반 cage</button>':'<button class="btn pri" id="newCage">+ 새 cage</button>'):''}</div>`;
   h+='<div id="bl"></div>';$('#view').innerHTML=h;drawBoard();
   $('#bq').oninput=()=>{BQ=$('#bq').value;drawBoard()};
-  $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;render()});
+  $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;saveView();render()});
   if($('#newCage'))$('#newCage').onclick=newCageForm;
   if($('#ckGo'))$('#ckGo').onclick=()=>{CKV=true;CK=ckLoad();render();scrollTo(0,0)};
   if($('#gAdd'))$('#gAdd').onclick=()=>generalForm(-1);
@@ -1855,7 +1872,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)[0]};color:${col(p.uid)[1]}${p.self?';outline:2px solid var(--acc-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261122150733';
+let NEWV=0;const VER='20261125152906';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
@@ -1863,7 +1880,8 @@ document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)locat
 const fixMT=n=>{const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);let t;while(t=w.nextNode())if(t.data.includes('메이팅'))t.data=t.data.replace(/메이팅/g,'Mating')};
 new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===3){if(n.data.includes('메이팅'))n.data=n.data.replace(/메이팅/g,'Mating')}else if(n.nodeType===1)fixMT(n)}))).observe(document.body,{childList:true,subtree:true});
 function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==which)}
-function go(t){tab=t;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
+function go(t){tab=t;saveView();$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
+$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $('#dX').onclick=()=>$('#dlg').close();
 $('#dlg').addEventListener('close',()=>{CUR=null;const t=$('#toast');if(t.parentNode!==document.body)document.body.appendChild(t)});
