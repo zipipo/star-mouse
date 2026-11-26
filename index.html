@@ -222,6 +222,7 @@ details>summary.more .c,details[open]>summary.more .o{display:none}details[open]
   <button role="tab" data-tab="board" aria-selected="false">케이지</button>
   <button role="tab" data-tab="tree" aria-selected="false">계보</button>
   <button role="tab" data-tab="log" aria-selected="false">기록</button>
+  <button role="tab" data-tab="ntbc" aria-selected="false">NTBC</button>
   <button role="tab" data-tab="handover" aria-selected="false">인수인계</button>
   <button role="tab" data-tab="rules" aria-selected="false">규칙</button>
   <button role="tab" data-tab="members" aria-selected="false" id="tabMembers" hidden>멤버</button>
@@ -258,7 +259,7 @@ let S=null, EVENTS=[], HANDOVERS=[], MEMBERS=[], ME=null, AUTH=null, started=fal
 let tab='today', filt='전체', BQ='', TD={}, TOPX=false;
 /* 마지막에 본 탭 · 거르기를 그날 동안 기억 (폰이 잠겼다 다시 열려도 케이지 탭 그대로) */
 const VIEWK='smView';
-try{const v=JSON.parse(localStorage.getItem(VIEWK)||'null');if(v&&v.d===ymd(new Date())&&['today','board','tree','log','handover','rules'].includes(v.tab)){tab=v.tab;filt=v.filt||'전체'}}catch(e){}
+try{const v=JSON.parse(localStorage.getItem(VIEWK)||'null');if(v&&v.d===ymd(new Date())&&['today','board','tree','log','ntbc','handover','rules'].includes(v.tab)){tab=v.tab;filt=v.filt||'전체'}}catch(e){}
 const saveView=()=>{try{localStorage.setItem(VIEWK,JSON.stringify({d:ymd(new Date()),tab,filt}))}catch(e){}};
 
 /* ===== 초기 데이터: 2026.10.27 엑셀 기준 ===== */
@@ -613,14 +614,15 @@ const nextVisit=(T=todayS())=>addD(T,[1,3,3,1,4,4,2][d(T).getDay()]);
 const snz=k=>(S.snoozeTo||{})[k]>todayS()||(S.snooze||{})[k]===todayS();
 function taskList(){
   const T=todayS(),o=[],up=[];
-  const add=x=>{if(x.due>T){if(x.due<=addD(T,7))up.push(x);return}if(snz(x.key))return;x.late=x.redAfter<T;o.push(x)};
+  const add=x=>{if(x.due>T){up.push(x);return}if(x.k==='weanEst')return;if(snz(x.key))return;x.late=x.redAfter<T;o.push(x)};
   const nb=ntbcNext();add({k:'ntbc',key:'ntbc:'+(nb?nb.next:''),cage:'전체',due:nb?nb.next:T,redAfter:nb?nb.next:T,t:'NTBC 교체',sub:(nb?`마지막 전체 ${md(nb.last)} → ${md(nb.next)}`:'전체 교체 기록 없음')+(N=>` · 전체 ${N.va} vial · 4마리↑ ${N.vb} vial`)(ntbc())});
   S.cages.forEach(c=>{
     if(c.mate){const due=addD(c.mate.start,MATE_DAYS);add({k:'mateEnd',key:'me:'+c.id+':'+c.mate.start,c,due,redAfter:due,t:'수컷 빼기',sub:`Mating ${md(c.mate.start)} 시작 · D${days(c.mate.start)} · ♂${c.mate.n} → ${c.mate.from}`})}
+    if(c.wait&&!c.pups){const [wa,wb]=WEANL(c.line),e0=addD(c.wait,GEST[0]+wa),e1=addD(c.wait,GEST[1]+wb);add({k:'weanEst',key:'we:'+c.id+':'+c.wait,c,due:e0,redAfter:e1,t:'암수분리 (출산하면)',sub:`출산 예정 ${md(addD(c.wait,GEST[0]))}~${md(addD(c.wait,GEST[1]))} → 분리 ${md(e0)}~${md(e1)}쯤`})}
     if(c.wait&&!c.pups){const due=addD(c.wait,GEST[0]),end=addD(c.wait,GEST[1]);add({k:'birth',key:'bi:'+c.id+':'+c.wait,c,due,redAfter:'9999-12-31',t:'출산 확인',sub:`출산 예정 ${md(due)}~${md(end)} · Mating ${md(c.wait)} D${days(c.wait)}`})}
     if(c.pups){const p=days(c.pups.born),[a,b]=WEANL(c.line);
       if((!c.pups.cnt||c.pups.unk)&&p<a){const due=c.pups.unk?c.pups.born:addD(c.pups.born,NO_TOUCH);add({k:'recount',key:'rc:'+c.id+':'+c.pups.born+(c.pups.unk?':u':''),c,due,redAfter:addD(c.pups.born,NO_TOUCH),t:c.pups.unk?'출산 · 새끼 마릿수 확인':'새끼 다시 세기',sub:`출산 ${md(c.pups.born)} · D${p} · 지금 ${pupS(c.pups)}마리${c.pups.unk?' (미확인)':''}`})}
-      const due=addD(c.pups.born,b);add({k:'wean',key:'wn:'+c.id+':'+c.pups.born,c,due,redAfter:due,t:'암수분리',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · D${p} (5주령 ${md(due)})`});
+      const due=addD(c.pups.born,a),end=addD(c.pups.born,b);add({k:'wean',key:'wn:'+c.id+':'+c.pups.born,c,due,redAfter:end,t:'암수분리',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)} · D${p} · ${Math.round(a/7)}주령 ${md(due)} ~ ${Math.round(b/7)}주령 ${md(end)}`});
       if(!hasBirthRec(c))add({k:'norec',key:'nr:'+c.id+':'+c.pups.litter,c,due:T,redAfter:addD(T,-1),t:'출산 기록 없음',sub:`${c.pups.litter} 새끼 ${pupS(c.pups)}`})}
   });
   NOTES().filter(n=>!n.done&&n.due).forEach(n=>{const c=n.cage&&S.cages.find(x=>x.id===n.cage);add({k:'note',key:'nt:'+n.id,cage:n.cage||'당번',c:c||null,due:n.due,redAfter:n.due,t:'당번 메모',sub:`${n.text} · ${n.by||''}`,note:n})});
@@ -634,6 +636,12 @@ function hasBirthRec(c){const k=c.pups.litter,re=new RegExp('(→|->)\\s*'+reEsc
   if(days(c.pups.born)>60)return true;
   return S.litters.some(l=>(l.hist||[]).some(h=>re.test(h.text||'')))}
 const tdv=(k,f,v)=>{TD[k]=TD[k]||{};return TD[k][f]??v};
+/* 다가오는 일: 이번 주 · 다음 주 · 그 뒤 주별 (월요일 시작) */
+let TUP=false;
+function upH(up,T){const W='일월화수목금토',mon=x=>addD(x,-((d(x).getDay()+6)%7)),m0=mon(T),g={};
+  up.forEach(x=>{const k=mon(x.due);(g[k]=g[k]||[]).push(x)});
+  return Object.keys(g).sort().map(k=>{const n=Math.round((d(k)-d(m0))/864e5/7),lab=n===0?'이번 주':n===1?'다음 주':`${md(k)} 주`;
+    return `<div class="wl-d">${lab} <span class="dim">${g[k].length}</span></div>`+g[k].map(x=>`<button data-c="${esc(x.c?x.c.id:'')}" data-k="${x.k}">${md(x.due)} (${W[d(x.due).getDay()]}) · <b>${esc(x.t)}</b> · ${x.c?esc(labS(x.c))+' <span class="dim">'+esc(x.c.id)+'</span>':esc(x.sub)}${x.c&&/암수분리|출산/.test(x.t)?`<br><span class="dim">${esc(x.sub)}</span>`:''}</button>`).join('')}).join('')}
 function renderToday(){
   const {o,up}=taskList(),T=todayS(),ed=canEdit();
   const late=o.filter(x=>x.late),now=o.filter(x=>!x.late);
@@ -646,7 +654,7 @@ function renderToday(){
     if(x.k==='recount'){const n=tdv(x.key,'n',x.c.pups.n);return `<div class="row"><button class="big sq" data-do="minus" data-tk="${K}" aria-label="한 마리 빼기">−</button><input class="n" type="number" min="0" inputmode="numeric" data-tk="${K}" data-f="n" value="${n}" aria-label="새끼 수"><button class="big sq" data-do="plus" data-tk="${K}" aria-label="한 마리 더">+</button></div><div class="row">${dateI(x)}<button class="big pri" data-do="recount" data-tk="${K}" ${x.c.pups.unk&&!(+n>0)?'disabled':''}>${n}마리</button>${x.c.pups.unk?`<button class="big" data-do="snooze" data-tk="${K}">아직 못 셈 · 다음에 (${'일월화수목금토'[d(nextVisit()).getDay()]})</button>`:''}</div>`}
     if(x.k==='wean')return `<div class="row"><button class="big pri" data-do="wean" data-tk="${K}">암수분리</button><button class="big" data-do="snooze" data-tk="${K}">작음 · 다음에 (${'일월화수목금토'[d(nextVisit()).getDay()]})</button></div>`;
     if(x.k==='ntbc')return `${(ids=>ids.length?`<div class="ntl">4마리↑ · 출산 cage ${ids.length}: ${ids.map(id=>{const c=S.cages.find(y=>y.id===id);return c&&c.pups?`<b>${esc(id)}</b><i> 🍼</i>`:`<b>${esc(id)}</b>`}).join(', ')}</div>`:'')(ntbc().bigIds)}<div class="row">${dateI(x)}<select data-tk="${K}" data-f="scope" aria-label="범위">${['전체','4마리↑'].map(v=>`<option ${tdv(x.key,'scope','전체')===v?'selected':''}>${v}</option>`).join('')}</select></div>
-        <div class="row"><input class="by" data-tk="${K}" data-f="by" value="${esc(tdv(x.key,'by',pairOn(tdv(x.key,'date',T))))}" placeholder="누가" aria-label="누가" style="flex:1;min-width:0"><button class="big pri" data-do="ntbc" data-tk="${K}">교체함</button></div>`;
+        <div class="row"><input class="by" data-tk="${K}" data-f="by" value="${esc(tdv(x.key,'by',pairOn(tdv(x.key,'date',T))))}" placeholder="누가" aria-label="누가" style="flex:1;min-width:0"><button class="big pri" data-do="ntbc" data-tk="${K}">교체함</button></div><div class="row"><button class="btn" data-go="ntbc">교체 내역 보기${(n=>n?` · 마지막 ${md(n.last)}`:'')(ntbcNext())}</button></div>`;
     if(x.k==='ho')return `<div class="x" style="white-space:pre-wrap">${esc(x.ho.text)}</div>${x.ho.to.includes(ME.name)||isAdmin()?`<div class="row"><button class="big pri" data-do="hoRead" data-tk="${K}">확인</button></div>`:''}`;
     if(x.k==='report')return `<div class="row"><button class="big pri" data-do="report" data-tk="${K}">현황조사표</button></div>`;
     if(x.k==='note')return `${x.c?'':`<div style="font-size:15px;font-weight:700">${esc(x.note.text)}</div>`}<div class="row"><button class="big pri" data-do="noteDone" data-tk="${K}">했음</button>${x.c?`<button class="big" data-do="open" data-tk="${K}">cage 열기</button>`:''}</div>`;
@@ -656,14 +664,15 @@ function renderToday(){
     ${x.c?`<div class="row" style="gap:6px;align-items:baseline"><span class="lab">${labH(x.c)}</span></div><div class="dim">${cname(x.c)} · ${esc(x.sub)}</div>`:`<div class="dim">${esc(x.sub)}</div>`}${ctl(x)}</div>`;
   const N=ntbc(),nb=ntbcNext();
   $('#view').innerHTML=`<div class="td"><div class="ntb">NTBC · 전체 ${N.all} cage <b>${N.va} vial</b> · 4마리↑ ${N.big} cage <b>${N.vb} vial</b>${nb?` · 다음 전체 ${md(nb.next)}`:''}</div>${late.length?`<div class="tdsec late">지난 일 ${late.length}</div>${late.map(row).join('')}`:''}<div class="tdsec">오늘 ${md(T)} · ${now.length}</div>${now.map(row).join('')||'<div class="dim" style="padding:8px 2px">오늘 할 일 없음 🐾</div>'}
-    ${up.length?`<details class="tdup"><summary>다가오는 일 ${up.length} (7일 안)</summary>${up.map(x=>`<button data-c="${esc(x.c?x.c.id:'')}" data-k="${x.k}">${md(x.due)} · ${esc(x.t)} · ${x.c?esc(labS(x.c))+' <span class="dim">'+esc(x.c.id)+'</span>':esc(x.sub)}</button>`).join('')}</details>`:''}</div>`;
+    ${up.length?`<details class="tdup"${TUP?' open':''}><summary>다가오는 일 ${up.length} <span class="dim" style="font-weight:400">· 7일 안 ${up.filter(x=>x.due<=addD(T,7)).length}</span></summary>${upH(up,T)}</details>`:''}</div>`;
   const find=k=>o.find(x=>x.key===k);
   /* 입력값은 TD에 두고 다시 그려도 유지. 숫자·누가는 칠 때 버튼 글자만 바꿈 */
   $$('#view [data-f]').forEach(el=>{const k=el.dataset.tk,f=el.dataset.f,set=()=>{TD[k]=TD[k]||{};TD[k][f]=el.type==='checkbox'?el.checked:f==='n'?Math.max(0,+el.value||0):el.value;if(f==='by')TD[k].byT=1};
     el.onchange=()=>{set();const x=find(k);if(f==='date'&&x&&x.k==='ntbc'&&!TD[k].byT)TD[k].by=pairOn(el.value);if(f!=='by')renderToday()};
     if(f==='n'||f==='by')el.oninput=()=>{set();if(f!=='n')return;const x=find(k),b=$(`#view [data-do="${x.k}"][data-tk="${CSS.escape(k)}"]`),u=TD[k].unk,n=TD[k].n;
       if(b){b.textContent=x.k==='birth'?`출산 ${u?(n?'약 '+n:'?'):n}마리`:`${n}마리`;b.disabled=x.k==='birth'&&!n&&!u}}});
-  $$('#view .tdup [data-c]').forEach(b=>b.onclick=()=>b.dataset.k==='ntbc'?ntbcForm():b.dataset.c&&openCage(b.dataset.c));
+  $$('#view .tdup [data-c]').forEach(b=>b.onclick=()=>b.dataset.k==='ntbc'?go('ntbc'):b.dataset.c&&openCage(b.dataset.c));
+  if($('#view .tdup'))$('#view .tdup').ontoggle=e=>{TUP=e.target.open};
   $$('#view [data-do]').forEach(b=>b.onclick=()=>taskDo(find(b.dataset.tk),b.dataset.do));
 }
 async function taskDo(x,a){if(!x)return;const T=todayS(),V=TD[x.key]||{},D=V.date||T,id=x.c&&x.c.id;
@@ -716,7 +725,7 @@ function renderTop(){
   const thisWeek=(S.ntbcLog||[]).filter(x=>x.date>=w.week);
   $('#duty').innerHTML=`<div><div>${rng(w)} <b>${w.pair.join(' · ')}</b>${mine?' 🐾 내 차례':''}</div>
     <div class="s">→ ${rng(n)} ${n.pair.join(' · ')} → ${rng(n2)} ${n2.pair.join(' · ')}</div>
-    <div class="s">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}${(p=>p.length?` · 4마리↑ ${p.map(x=>md(x.date)).join(', ')}`:'')(thisWeek.filter(x=>x.scope!=='전체'))}</div></div>
+    <div class="s" data-go="ntbc" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px">${(nb=>nb?`NTBC 전체 교체 ${md(nb.last)} → 다음 ${md(nb.next)}`:'NTBC 전체 교체 기록 없음')(ntbcNext())}${(p=>p.length?` · 4마리↑ ${p.map(x=>md(x.date)).join(', ')}`:'')(thisWeek.filter(x=>x.scope!=='전체'))}</div></div>
     <div class="acts"><button class="btn pri" id="bN" ${canEdit()?'':'disabled'}>NTBC 교체</button><button class="btn" id="bS" ${canEdit()?'':'disabled'}>교대</button></div>`;
   $('#bN').onclick=ntbcForm;$('#bS').onclick=swapForm;
   /* 오늘 할 일 탭이 아니면 당번 · 현황표를 한 줄로 접어 cage가 바로 보이게. 누르면 펼침 */
@@ -730,7 +739,8 @@ function renderTop(){
   }
   /* 지금 당번이 받은 인수인계 중 가장 최근 것. 확인하면 띠는 사라지고 인수인계 탭에는 남음.
      받는 사람은 오늘 할 일에 같은 항목이 있으니 그 탭에선 띠를 숨김 */
-  const hx=hoTo(w.pair).find(x=>!x.read),hb=$('#hoTop');hb.hidden=!hx||(tab==='today'&&String(hx.to).includes(ME.name));
+  /* 인수인계는 쓰자마자 맨 위 띠에 (받는 사람 주가 아직 안 와도). 안 읽은 것 중 가장 최근 */
+  const hx=HOS().filter(x=>!x.read).sort((a,b)=>((b.ts?.toMillis?.()||0)-(a.ts?.toMillis?.()||0)))[0],hb=$('#hoTop');hb.hidden=!hx||(tab==='today'&&String(hx.to).includes(ME.name));
   if(hx){const t=hx.ts?.toDate?hx.ts.toDate():null;
     hb.innerHTML=`<div class="h"><b>📋 인수인계</b><span class="dim">${esc(hx.from)} → ${esc(hx.to)}${t?` · ${fd(ymd(t))} ${t.toTimeString().slice(0,5)}`:''} · ${hx.read?`확인 ${esc(hx.readBy||'')}`:'<b style="color:var(--alert-ink)">미확인</b>'}</span>
       ${!hx.read&&hx.to.includes(ME.name)?`<button class="btn pri" id="hoRead">확인</button>`:''}<button class="btn" id="hoAll" style="margin-left:auto">전체 보기</button></div><div class="x">${esc(hx.text)}</div>`;
@@ -870,7 +880,7 @@ const typeV=e=>!isNoteT(e.type)?e.type:e.type==='당번 메모'?'할 일 메모'
 let LF='';
 function renderLog(){
   const who=[...new Set(EVENTS.filter(e=>!isMeta(e)).map(e=>e.by).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
-  const L=EVENTS.filter(e=>!isMeta(e)&&!isHid(e)&&(!LF||(LF==='일반'?String(e.cage||'').startsWith('일반'):e.by===LF)));
+  const L=EVENTS.filter(e=>!isMeta(e)&&!isHid(e)&&e.type!=='NTBC'&&(!LF||(LF==='일반'?String(e.cage||'').startsWith('일반'):e.by===LF)));
   $('#view').innerHTML=`<div class="qa g2" style="margin-bottom:6px"><span class="qg">파일</span><button class="btn pri" id="xlsL">인수인계 엑셀</button><button class="btn pri" id="rpt">동물센터 월간 보고</button>${isAdmin()?'<button class="btn" id="bkB">백업 · 되돌리기</button>':''}</div>
   ${isAdmin()?'<div class="qa g3" style="margin-bottom:8px"><span class="qg">Claude</span><button class="btn" id="snB">현황 보내기</button><button class="btn" id="opB">작업 붙여넣기</button></div>':''}<div class="row" style="gap:6px;margin-bottom:8px;align-items:center"><select id="lgF" aria-label="기록 거르기" style="min-height:36px"><option value="">전체 기록</option><option value="일반" ${LF==='일반'?'selected':''}>일반 cage</option>${who.map(n=>`<option ${LF===n?'selected':''}>${esc(n)}</option>`).join('')}</select></div><div id="bkP"></div><div class="ox"><table class="log"><tr><th>날짜</th><th>cage</th><th></th><th>내용</th><th>입력</th>${canEdit()?'<th></th>':''}</tr>${L.map(e=>{const ud=undoneOf(e);return `<tr${ud?' class="undone"':''}><td>${md(e.date)}</td><td>${esc(cageV(e))}</td><td>${esc(typeV(e))}</td><td>${esc(e.text)}${e.ed?` <span class="dim">(수정 ${esc(e.edBy||'')})</span>`:''}${ud?` <span class="dim">(되돌림 ${esc(ud.by||'')})</span>`:''}</td><td>${esc(e.by)}</td>${canEdit()&&e.id?`<td><button class="evx" data-ev="${esc(e.id)}">수정</button></td>`:canEdit()?'<td></td>':''}</tr>`}).join('')}</table></div>`;
   $('#lgF').onchange=e=>{LF=e.target.value;renderLog()};
@@ -881,6 +891,23 @@ function renderLog(){
     $$('[data-bd]').forEach(x=>x.onclick=()=>{const b=L[+x.dataset.bd],u=URL.createObjectURL(new Blob([JSON.stringify(b,null,1)],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=`star-mouse-backup-${b.id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)});
     $$('[data-br]').forEach(x=>x.onclick=()=>{const b=L[+x.dataset.br];x.outerHTML=`<span>cage 현황을 ${esc(b.id)} 상태로 바꿀까요? <button class="btn pri" id="brY">되돌리기</button></span>`;
       $('#brY').onclick=async()=>{if(await commit(st=>{Object.keys(st).forEach(k=>delete st[k]);Object.assign(st,clone(b.main))},[{cage:'백업',type:'되돌리기',text:`${b.id} 상태로 · ${deltaText(stDelta(S,b.main)).slice(0,300)||'바뀐 것 없음'}`}]))toast('되돌림')}})};
+}
+/* NTBC 교체 내역: 기록 탭에서 빼서 여기만. 오늘 할 일 NTBC 칸 · 당번 칸 NTBC 줄에서 이리로 */
+function renderNtbc(){
+  const N=ntbc(),nb=ntbcNext(),W='일월화수목금토',ed=canEdit();
+  let E=EVENTS.filter(e=>e.type==='NTBC').map(e=>({...e,undone:!!undoneOf(e)}));
+  if(!E.length)E=(S.ntbcLog||[]).map(x=>({date:x.date,text:`${x.scope} · ${x.by||''}`}));
+  E.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const g={};E.forEach(e=>(g[String(e.date).slice(0,7)]=g[String(e.date).slice(0,7)]||[]).push(e));
+  $('#view').innerHTML=`<section class="frm" style="background:var(--acc);color:var(--acc-ink)">
+    <div style="font-size:15px"><b>NTBC</b> · ${nb?`마지막 전체 교체 <b>${md(nb.last)}</b> → 다음 <b>${md(nb.next)}</b>`:'전체 교체 기록 없음'}</div>
+    <div>전체 ${N.all} cage <b>${N.va} vial</b> · 4마리↑ · 출산 ${N.big} cage <b>${N.vb} vial</b></div>
+    ${N.bigIds.length?`<div class="ntl">4마리↑ · 출산 cage: ${N.bigIds.map(id=>{const c=S.cages.find(y=>y.id===id);return `<b>${esc(id)}</b>${c&&c.pups?'<i> 🍼</i>':''}`}).join(', ')}</div>`:''}
+    ${ed?'<div class="row"><button class="btn pri" id="ntGo">교체 기록하기</button></div>':''}</section>
+    <h4 style="margin:14px 0 4px">교체 내역 <span class="dim" style="font-weight:400">${E.length}번</span></h4>
+    ${Object.keys(g).map(k=>`<div class="wl-d">${+k.slice(5)}월 <span class="dim">${g[k].length}번</span></div>${g[k].map(e=>`<div class="wl"${e.undone?' style="opacity:.5;text-decoration:line-through"':''}><div><b>${md(e.date)} (${W[d(e.date).getDay()]})</b> <span class="wl-t">${esc(e.text||'')}</span>${e.by?` <span class="dim">· 입력 ${esc(e.by)}</span>`:''}${ed&&e.id?` <button class="evx" data-ev="${esc(e.id)}">수정</button>`:''}</div></div>`).join('')}`).join('')||'<div class="dim">아직 없음</div>'}`;
+  if($('#ntGo'))$('#ntGo').onclick=ntbcForm;
+  $$('#view [data-ev]').forEach(b=>b.onclick=()=>evForm(b.dataset.ev,()=>{$('#dlg').close();render()}));
 }
 function renderHandover(){
   const w=curW(),n=nextW(),evs=EVENTS.filter(e=>e.date>=w.week&&!isMeta(e)&&!isHid(e)),N=ntbc(),ed=canEdit();
@@ -1044,7 +1071,7 @@ function render(){
   if(!S){renderEmpty();return}
   const ae=document.activeElement,aid=ae&&ae.id&&$('#view').contains(ae)?ae.id:null,sel=aid&&typeof ae.selectionStart==='number'?[ae.selectionStart,ae.selectionEnd]:null;
   renderTop();
-  ({today:renderToday,board:renderBoard,tree:renderTree,general:renderBoard,log:renderLog,handover:renderHandover,rules:renderRules,members:renderMembers})[tab]();
+  ({ntbc:renderNtbc,today:renderToday,board:renderBoard,tree:renderTree,general:renderBoard,log:renderLog,handover:renderHandover,rules:renderRules,members:renderMembers})[tab]();
   if(aid){const n=document.getElementById(aid);if(n&&n!==document.activeElement){n.focus();try{sel&&n.setSelectionRange(...sel)}catch(e){}}}
   refreshDlg();
 }
@@ -1297,8 +1324,8 @@ function actForm(c,a){
 const GF=[['no','Cage No.'],['owner','연구자'],['strain','Strain'],['iacuc','SKKUIACUC'],['dob','D.O.B','date'],['inDate','반입일','date'],['m','♂','number'],['f','♀','number'],['parents','Parents'],['memo','메모']];
 const GFI=GF.filter(([k])=>k!=='memo');
 const gTag=g=>'일반 '+(g.no||'');
-/* 체중 · 종양: g.wt=[{date,by,r:{f1:{w,a,b}}}] (키 = 성별+개체 번호). 첫 체중보다 WT_DROP% 넘게 빠지면 빨강 (랩 기준 확인 필요) */
-const WT_DROP=20,tumV=o=>o&&o.a&&o.b?Math.round(Math.max(o.a,o.b)*Math.min(o.a,o.b)**2/2):null;
+/* 체중: g.wt=[{date,by,r:{f1:{w}}}] (키 = 성별+개체 번호). 첫 체중보다 WT_DROP% 넘게 빠지면 빨강 (랩 기준 확인 필요) */
+const WT_DROP=20;
 function wtStat(g){const W=(g.wt||[]).slice().sort((a,b)=>a.date.localeCompare(b.date)),keys=[...new Set(W.flatMap(x=>Object.keys(x.r||{})))],o={};
   keys.forEach(k=>{const ws=W.filter(x=>x.r[k]&&x.r[k].w).map(x=>({date:x.date,w:+x.r[k].w}));if(!ws.length)return;const f=ws[0].w,l=ws[ws.length-1].w;o[k]={base:f,last:l,pct:Math.round((l-f)/f*1000)/10}});
   return {W,keys,o,bad:keys.filter(k=>o[k]&&o[k].pct<=-WT_DROP)}}
@@ -1306,9 +1333,9 @@ const wtKey=k=>nmI(k[0],+k.slice(1));
 function wtBadge(g){if(!(g.wt||[]).length)return '';const s=wtStat(g),last=s.W[s.W.length-1];
   return s.bad.length?`<span class="brd">⚖ ${s.bad.map(k=>`${wtKey(k)} ${s.o[k].pct}%`).join(' · ')}</span>`:`<span class="dim" style="font-size:12px">⚖ ${md(last.date)} 측정</span>`}
 function wtTable(g){const s=wtStat(g);if(!s.W.length)return '';const D=s.W.slice(-5);
-  return `<h4 style="margin:10px 0 4px;font-size:13.5px">⚖ 체중 · 종양 <span class="dim" style="font-weight:400">g · 종양 mm³ (장경×단경²/2) · 첫 체중 대비 %</span></h4><div class="ox"><table class="wtt"><tr><th></th>${D.map(x=>`<th>${md(x.date)}</th>`).join('')}</tr>
-   ${s.keys.map(k=>`<tr><td><b class="${k[0]==='m'?'ma':'fe'}">${wtKey(k)}</b></td>${D.map(x=>{const v=x.r[k];if(!v)return '<td class="dim">-</td>';const st=s.o[k],pc=v.w&&st?Math.round((v.w-st.base)/st.base*1000)/10:null,tv=tumV(v);
-     return `<td>${v.w?esc(String(v.w)):'-'}${pc!=null&&x.date!==s.W.find(y=>y.r[k]&&y.r[k].w)?.date?`<small class="${pc<=-WT_DROP?'bad':''}">${pc>0?'+':''}${pc}%</small>`:''}${tv!=null?`<small>${tv} mm³</small>`:''}</td>`}).join('')}</tr>`).join('')}</table></div>`}
+  return `<h4 style="margin:10px 0 4px;font-size:13.5px">⚖ 체중 <span class="dim" style="font-weight:400">g · 첫 체중 대비 %</span></h4><div class="ox"><table class="wtt"><tr><th></th>${D.map(x=>`<th>${md(x.date)}</th>`).join('')}</tr>
+   ${s.keys.map(k=>`<tr><td><b class="${k[0]==='m'?'ma':'fe'}">${wtKey(k)}</b></td>${D.map(x=>{const v=x.r[k];if(!v)return '<td class="dim">-</td>';const st=s.o[k],pc=v.w&&st?Math.round((v.w-st.base)/st.base*1000)/10:null;
+     return `<td>${v.w?esc(String(v.w)):'-'}${pc!=null&&x.date!==s.W.find(y=>y.r[k]&&y.r[k].w)?.date?`<small class="${pc<=-WT_DROP?'bad':''}">${pc>0?'+':''}${pc}%</small>`:''}</td>`}).join('')}</tr>`).join('')}</table></div>`}
 const gC=g=>({m:+g.m||0,f:+g.f||0,indM:g.indM,indF:g.indF});
 const gNotes=g=>notesOf({note:g.memo,notes:g.notes});
 const NUMC='①②③④⑤⑥⑦⑧⑨⑩⑪⑫',nmI=(sx,no)=>(sx==='m'?'♂':'♀')+(NUMC[no-1]||no),labI=o=>[o&&o.ear,o&&o.memo].filter(Boolean).join(' ');
@@ -1358,7 +1385,7 @@ function openGen(i,act){
   const B=(k,t)=>`<button data-ga="${k}" class="${act===k?'on':''}">${t}</button>`,alive=c.m+c.f>0;
   $('#dB').innerHTML=`<div class="dim">${[g.strain,g.dob&&`DOB ${fd(g.dob)} · ${days(g.dob)}일`,g.owner&&ownerL(g.owner),g.iacuc&&'IACUC '+g.iacuc,g.inDate&&'반입 '+fd(g.inDate),g.parents&&'Parents '+g.parents].filter(Boolean).map(esc).join(' · ')}</div>
    <div style="margin:8px 0">${mice(c)}</div>
-   ${canEdit()?`<div class="qa g2"><span class="qg">마리수</span>${alive?B('exp','실험')+B('death','사망'):''}${alive?B('sex','성별 수정'):''}${B('info','라벨 정보 · 마리수 수정')}</div><div class="qa g3"><span class="qg">기록</span>${B('memo','메모')}${alive?B('ind','개체 표시')+B('wt','체중 · 종양'):''}</div><div id="form"></div>`:''}
+   ${canEdit()?`<div class="qa g2"><span class="qg">마리수</span>${alive?B('exp','실험')+B('death','사망'):''}${alive?B('sex','성별 수정'):''}${B('info','라벨 정보 · 마리수 수정')}</div><div class="qa g3"><span class="qg">기록</span>${B('memo','메모')}${alive?B('ind','개체 표시')+B('wt','체중'):''}</div><div id="form"></div>`:''}
    ${wtTable(g)}
    ${alive?`<h4 style="margin:10px 0 4px;font-size:13.5px">🏷 남은 개체</h4><div style="background:var(--soft);border-radius:8px;padding:8px 10px;font-size:13.5px">${['m','f'].flatMap(sx=>inds(c,sx).map(o=>`<b class="${sx==='m'?'ma':'fe'}">${nmI(sx,o.no)}</b> ${esc(labI(o))||'<span class="dim">표시 없음</span>'}`)).join('<br>')}</div>`:''}
    ${gone.length?`<h4 style="margin:10px 0 4px;font-size:13.5px">✂ 나간 개체</h4>${listH(gone,x=>`<li><b style="font-weight:600">${fd(x.date)} <span class="${x.sx==='m'?'ma':'fe'}">${nmI(x.sx,x.no)}</span>${x.mark?' '+esc(x.mark):''} ${esc(x.type)}</b>${x.text?' · '+esc(x.text):''} <span class="dim">${esc(x.by||'')}</span>${canEdit()?` <button class="evx" data-gback="${x.k}">되돌리기</button>`:''}</li>`)}`:''}
@@ -1409,12 +1436,12 @@ function genAct(i,a){
   }
   if(a==='wt'){
     const c=gC(g),rows=['m','f'].flatMap(sx=>inds(c,sx).map(o=>({sx,no:o.no,lab:labI(o)}))),s=wtStat(g),prev=k=>{const x=[...s.W].reverse().find(y=>y.r[k]&&y.r[k].w);return x?x.r[k].w:''};
-    h=`<div class="dim">체중 g · 종양 장경 × 단경 mm (빈 칸은 안 적음). 같은 날 다시 적으면 그 날 값을 바꿈</div><div class="ox"><table class="wtt wtf"><tr><th></th><th>체중</th><th>장경</th><th>단경</th></tr>${rows.map(r=>{const K=r.sx+r.no;
-      return `<tr><td><b class="${r.sx==='m'?'ma':'fe'}">${nmI(r.sx,r.no)}</b>${r.lab?`<small>${esc(r.lab)}</small>`:''}</td><td><input class="wv" data-k="${K}" data-f="w" type="number" step="0.1" min="0" inputmode="decimal" placeholder="${esc(String(prev(K)))}"></td><td><input class="wv" data-k="${K}" data-f="a" type="number" step="0.1" min="0" inputmode="decimal"></td><td><input class="wv" data-k="${K}" data-f="b" type="number" step="0.1" min="0" inputmode="decimal"></td></tr>`}).join('')}</table></div>`;
+    h=`<div class="dim">체중 g (빈 칸은 안 적음). 같은 날 다시 적으면 그 날 값을 바꿈</div><div class="ox"><table class="wtt wtf"><tr><th></th><th>체중 g</th></tr>${rows.map(r=>{const K=r.sx+r.no;
+      return `<tr><td><b class="${r.sx==='m'?'ma':'fe'}">${nmI(r.sx,r.no)}</b>${r.lab?`<small>${esc(r.lab)}</small>`:''}</td><td><input class="wv" data-k="${K}" data-f="w" type="number" step="0.1" min="0" inputmode="decimal" placeholder="${esc(String(prev(K)))}"></td></tr>`}).join('')}</table></div>`;
     ok=async()=>{const D=pickD();if(!D)return;const r={};
       $$('.wv').forEach(e=>{const v=parseFloat(e.value);if(!(v>0))return;(r[e.dataset.k]=r[e.dataset.k]||{})[e.dataset.f]=v});
-      if(!Object.keys(r).length){toast('체중이나 종양 크기를 넣어주세요');return}
-      const txt=Object.keys(r).map(k=>`${wtKey(k)} ${r[k].w?r[k].w+'g':''}${r[k].a&&r[k].b?` 종양 ${r[k].a}×${r[k].b}`:''}`.trim()).join(' · ');
+      if(!Object.keys(r).length){toast('체중을 넣어주세요');return}
+      const txt=Object.keys(r).map(k=>`${wtKey(k)} ${r[k].w}g`).join(' · ');
       after(await commit(st=>{const x=G(st),W=(x.wt||[]).map(y=>({...y,r:{...y.r}})),o=W.find(y=>y.date===D);
         if(o){Object.keys(r).forEach(k=>o.r[k]={...(o.r[k]||{}),...r[k]});o.by=ME.nick}else W.push({date:D,by:ME.nick,r});
         x.wt=W.sort((p,q)=>p.date.localeCompare(q.date))},[{cage:tag,date:D,type:'체중',text:txt}]))};
@@ -1944,7 +1971,7 @@ function drawPres(){
   $('#pres').innerHTML=on.map(p=>`<span title="${esc(p.nick)}${p.self?' (나)':' 접속 중'}" style="background:${col(p.uid)[0]};color:${col(p.uid)[1]}${p.self?';outline:2px solid var(--acc-2)':''}">${esc([...p.nick].slice(0,2).join(''))}</span>`).join('');
 }
 /* 새 버전: 앱을 벗어났을 때 조용히 새로고침 */
-let NEWV=0;const VER='20261126044505';
+let NEWV=0;const VER='20261126045101';
 setInterval(async()=>{try{const v=(await (await fetch('version.txt?'+Date.now(),{cache:'no-store'})).text()).trim();
   if(v&&v!==VER&&!NEWV){NEWV=1;if(document.hidden)location.reload()}}catch(e){}},60000);
 document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)location.reload()});
@@ -1952,6 +1979,7 @@ document.addEventListener('visibilitychange',()=>{if(NEWV&&document.hidden)locat
 const fixMT=n=>{const w=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);let t;while(t=w.nextNode())if(t.data.includes('메이팅'))t.data=t.data.replace(/메이팅/g,'Mating')};
 new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===3){if(n.data.includes('메이팅'))n.data=n.data.replace(/메이팅/g,'Mating')}else if(n.nodeType===1)fixMT(n)}))).observe(document.body,{childList:true,subtree:true});
 function show(which){['login','pending','app'].forEach(k=>$('#'+k).hidden=k!==which)}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b&&!b.closest('#dB')){e.preventDefault();go(b.dataset.go);scrollTo(0,0)}});
 function go(t){tab=t;saveView();$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));render()}
 $$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
 $$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.tab));
